@@ -1,15 +1,31 @@
 import { join } from 'path';
 import { SchematicTestRunner } from '@angular-devkit/schematics/testing';
-import { Tree, Rule } from '@angular-devkit/schematics';
+import { Tree, Rule, externalSchematic } from '@angular-devkit/schematics';
 import { names, toFileName } from '@nrwl/workspace/src/utils/name-utils';
+import { createEmptyWorkspace } from '@nrwl/workspace/testing';
 
 const testRunner = new SchematicTestRunner(
   '@nrwl/angular',
   join(__dirname, '../../collection.json')
 );
 
-export function runSchematic(schematicName: string, options: any, tree: Tree) {
+export function runSchematic<SchemaOptions = any>(
+  schematicName: string,
+  options: SchemaOptions,
+  tree: Tree
+) {
   return testRunner.runSchematicAsync(schematicName, options, tree).toPromise();
+}
+
+export function runExternalSchematic<SchemaOptions = any>(
+  collectionName: string,
+  schematicName: string,
+  options: SchemaOptions,
+  tree: Tree
+) {
+  return testRunner
+    .runExternalSchematicAsync(collectionName, schematicName, options, tree)
+    .toPromise();
 }
 
 export function callRule(rule: Rule, tree: Tree) {
@@ -94,9 +110,10 @@ export function createApp(
     })
   );
   tree.overwrite(
-    '/angular.json',
+    '/workspace.json',
     JSON.stringify({
       newProjectRoot: '',
+      version: 1,
       projects: {
         [appName]: {
           root: `apps/${appName}`,

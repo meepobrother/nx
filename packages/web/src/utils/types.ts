@@ -30,9 +30,21 @@ export interface BuildBuilderOptions {
   progress?: boolean;
   statsJson?: boolean;
   extractLicenses?: boolean;
+  verbose?: boolean;
 
+  outputHashing?: any;
   webpackConfig?: string;
 
   root?: string;
   sourceRoot?: Path;
+}
+
+export interface BundleBuilderOptions {
+  outputPath: string;
+  tsConfig: string;
+  project: string;
+  entryFile: string;
+  rollupConfig?: string;
+  babelConfig?: string;
+  watch?: boolean;
 }

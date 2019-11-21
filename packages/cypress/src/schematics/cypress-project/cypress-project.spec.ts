@@ -1,13 +1,13 @@
-import { Tree, VirtualTree } from '@angular-devkit/schematics';
+import { Tree } from '@angular-devkit/schematics';
 import { createEmptyWorkspace } from '@nrwl/workspace/testing';
 import { runSchematic } from '../../utils/testing';
-import { readJsonInTree } from '@nrwl/workspace';
+import { readJsonInTree, Linter } from '@nrwl/workspace';
 
 describe('schematic:cypress-project', () => {
   let appTree: Tree;
 
   beforeEach(() => {
-    appTree = new VirtualTree();
+    appTree = Tree.empty();
     appTree = createEmptyWorkspace(appTree);
   });
 
@@ -28,7 +28,7 @@ describe('schematic:cypress-project', () => {
       expect(
         tree.exists('apps/my-app-e2e/src/integration/app.spec.ts')
       ).toBeTruthy();
-      expect(tree.exists('apps/my-app-e2e/src/plugins/index.ts')).toBeTruthy();
+      expect(tree.exists('apps/my-app-e2e/src/plugins/index.js')).toBeTruthy();
       expect(tree.exists('apps/my-app-e2e/src/support/app.po.ts')).toBeTruthy();
       expect(
         tree.exists('apps/my-app-e2e/src/support/commands.ts')
@@ -36,21 +36,22 @@ describe('schematic:cypress-project', () => {
       expect(tree.exists('apps/my-app-e2e/src/support/index.ts')).toBeTruthy();
     });
 
-    it('should add update `angular.json` file', async () => {
+    it('should add update `workspace.json` file', async () => {
       const tree = await runSchematic(
         'cypress-project',
-        { name: 'my-app-e2e', project: 'my-app' },
+        { name: 'my-app-e2e', project: 'my-app', linter: Linter.TsLint },
         appTree
       );
-      const angularJson = readJsonInTree(tree, 'angular.json');
-      const project = angularJson.projects['my-app-e2e'];
+      const workspaceJson = readJsonInTree(tree, 'workspace.json');
+      const project = workspaceJson.projects['my-app-e2e'];
 
       expect(project.root).toEqual('apps/my-app-e2e');
 
       expect(project.architect.lint).toEqual({
         builder: '@angular-devkit/build-angular:tslint',
         options: {
-          tsConfig: 'apps/my-app-e2e/tsconfig.e2e.json'
+          tsConfig: ['apps/my-app-e2e/tsconfig.e2e.json'],
+          exclude: ['**/node_modules/**', '!apps/my-app-e2e/**']
         }
       });
       expect(project.architect.e2e).toEqual({
@@ -68,6 +69,26 @@ describe('schematic:cypress-project', () => {
       });
     });
 
+    it('should add update `workspace.json` file properly when eslint is passed', async () => {
+      const tree = await runSchematic(
+        'cypress-project',
+        { name: 'my-app-e2e', project: 'my-app', linter: Linter.EsLint },
+        appTree
+      );
+      const workspaceJson = readJsonInTree(tree, 'workspace.json');
+      const project = workspaceJson.projects['my-app-e2e'];
+
+      expect(project.architect.lint).toEqual({
+        builder: '@nrwl/linter:lint',
+        options: {
+          linter: 'eslint',
+          config: 'apps/my-app-e2e/.eslintrc',
+          tsConfig: ['apps/my-app-e2e/tsconfig.e2e.json'],
+          exclude: ['**/node_modules/**', '!apps/my-app-e2e/**']
+        }
+      });
+    });
+
     it('should set right path names in `cypress.json`', async () => {
       const tree = await runSchematic(
         'cypress-project',
@@ -77,14 +98,15 @@ describe('schematic:cypress-project', () => {
       const cypressJson = readJsonInTree(tree, 'apps/my-app-e2e/cypress.json');
 
       expect(cypressJson).toEqual({
-        fileServerFolder: '../../dist/out-tsc/apps/my-app-e2e',
-        fixturesFolder: '../../dist/out-tsc/apps/my-app-e2e/src/fixtures',
-        integrationFolder: '../../dist/out-tsc/apps/my-app-e2e/src/integration',
-        pluginsFile: '../../dist/out-tsc/apps/my-app-e2e/src/plugins/index.js',
-        supportFile: false,
+        fileServerFolder: '.',
+        fixturesFolder: './src/fixtures',
+        integrationFolder: './src/integration',
+        modifyObstructiveCode: false,
+        pluginsFile: './src/plugins/index',
+        supportFile: './src/support/index.ts',
         video: true,
-        videosFolder: '../../dist/out-tsc/apps/my-app-e2e/videos',
-        screenshotsFolder: '../../dist/out-tsc/apps/my-app-e2e/screenshots',
+        videosFolder: '../../dist/cypress/apps/my-app-e2e/videos',
+        screenshotsFolder: '../../dist/cypress/apps/my-app-e2e/screenshots',
         chromeWebSecurity: false
       });
     });
@@ -101,19 +123,22 @@ describe('schematic:cypress-project', () => {
       );
 
       expect(tsconfigJson.extends).toEqual('./tsconfig.json');
-      expect(tsconfigJson.compilerOptions.outDir).toEqual(
-        '../../dist/out-tsc/apps/my-app-e2e/src'
-      );
+      expect(tsconfigJson.compilerOptions.outDir).toEqual('../../dist/out-tsc');
     });
 
     describe('nested', () => {
-      it('should update angular.json', async () => {
+      it('should update workspace.json', async () => {
         const tree = await runSchematic(
           'cypress-project',
-          { name: 'my-app-e2e', project: 'my-dir-my-app', directory: 'my-dir' },
+          {
+            name: 'my-app-e2e',
+            project: 'my-dir-my-app',
+            directory: 'my-dir',
+            linter: Linter.TsLint
+          },
           appTree
         );
-        const projectConfig = readJsonInTree(tree, 'angular.json').projects[
+        const projectConfig = readJsonInTree(tree, 'workspace.json').projects[
           'my-dir-my-app-e2e'
         ];
 
@@ -121,7 +146,8 @@ describe('schematic:cypress-project', () => {
         expect(projectConfig.architect.lint).toEqual({
           builder: '@angular-devkit/build-angular:tslint',
           options: {
-            tsConfig: 'apps/my-dir/my-app-e2e/tsconfig.e2e.json'
+            tsConfig: ['apps/my-dir/my-app-e2e/tsconfig.e2e.json'],
+            exclude: ['**/node_modules/**', '!apps/my-dir/my-app-e2e/**']
           }
         });
 
@@ -152,18 +178,16 @@ describe('schematic:cypress-project', () => {
         );
 
         expect(cypressJson).toEqual({
-          fileServerFolder: '../../../dist/out-tsc/apps/my-dir/my-app-e2e',
-          fixturesFolder:
-            '../../../dist/out-tsc/apps/my-dir/my-app-e2e/src/fixtures',
-          integrationFolder:
-            '../../../dist/out-tsc/apps/my-dir/my-app-e2e/src/integration',
-          pluginsFile:
-            '../../../dist/out-tsc/apps/my-dir/my-app-e2e/src/plugins/index.js',
-          supportFile: false,
+          fileServerFolder: '.',
+          fixturesFolder: './src/fixtures',
+          integrationFolder: './src/integration',
+          modifyObstructiveCode: false,
+          pluginsFile: './src/plugins/index',
+          supportFile: './src/support/index.ts',
           video: true,
-          videosFolder: '../../../dist/out-tsc/apps/my-dir/my-app-e2e/videos',
+          videosFolder: '../../../dist/cypress/apps/my-dir/my-app-e2e/videos',
           screenshotsFolder:
-            '../../../dist/out-tsc/apps/my-dir/my-app-e2e/screenshots',
+            '../../../dist/cypress/apps/my-dir/my-app-e2e/screenshots',
           chromeWebSecurity: false
         });
       });
@@ -180,7 +204,7 @@ describe('schematic:cypress-project', () => {
         );
 
         expect(tsconfigJson.compilerOptions.outDir).toEqual(
-          '../../../dist/out-tsc/apps/my-dir/my-app-e2e/src'
+          '../../../dist/out-tsc'
         );
       });
     });

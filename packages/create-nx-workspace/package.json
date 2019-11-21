@@ -1,18 +1,21 @@
 {
   "name": "create-nx-workspace",
   "version": "0.0.2",
-  "description": "Angular CLI power-ups for modern Web development",
+  "description": "Extensible Dev Tools for Monorepos",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nrwl/nx.git"
   },
   "keywords": [
-    "RxJS",
+    "Monorepo",
     "Angular",
-    "Workspace",
-    "NgRx",
-    "Schematics",
-    "Angular CLI"
+    "React",
+    "Web",
+    "Node",
+    "Nest",
+    "Jest",
+    "Cypress",
+    "CLI"
   ],
   "bin": {
     "create-nx-workspace": "./bin/create-nx-workspace.js"
@@ -24,8 +27,10 @@
   },
   "homepage": "https://nx.dev",
   "dependencies": {
+    "@nrwl/workspace": "*",
     "tmp": "0.0.33",
     "yargs-parser": "10.0.0",
-    "yargs": "^11.0.0"
+    "yargs": "^11.0.0",
+    "inquirer": "^6.3.1"
   }
 }

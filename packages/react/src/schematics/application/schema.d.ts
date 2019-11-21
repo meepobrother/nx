@@ -1,13 +1,16 @@
-import { Framework } from './.../utils/frameworks';
-import { E2eTestRunner, UnitTestRunner } from '../../utils/test-runners';
+import { Linter } from '@nrwl/workspace';
 
 export interface Schema {
   name: string;
-  prefix?: string;
   style?: string;
   skipFormat: boolean;
   directory?: string;
   tags?: string;
-  unitTestRunner: UnitTestRunner;
-  e2eTestRunner: E2eTestRunner;
+  unitTestRunner: 'jest' | 'none';
+  e2eTestRunner: 'cypress' | 'none';
+  linter: Linter;
+  pascalCaseFiles?: boolean;
+  classComponent?: boolean;
+  routing?: boolean;
+  skipWorkspaceJson?: boolean;
 }

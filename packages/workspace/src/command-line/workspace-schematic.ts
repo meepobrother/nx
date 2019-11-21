@@ -3,36 +3,44 @@ import {
   logging,
   normalize,
   schema,
+  tags,
+  terminal,
   virtualFs
 } from '@angular-devkit/core';
 import { createConsoleLogger, NodeJsSyncHost } from '@angular-devkit/core/node';
 import {
+  formats,
   SchematicEngine,
   UnsuccessfulWorkflowExecution
 } from '@angular-devkit/schematics';
 import {
   NodeModulesEngineHost,
-  NodeWorkflow
+  NodeWorkflow,
+  validateOptionsWithSchema
 } from '@angular-devkit/schematics/tools';
-import * as appRoot from 'app-root-path';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
-import { readFileSync, statSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra';
 import * as inquirer from 'inquirer';
+import { platform } from 'os';
 import * as path from 'path';
 import * as yargsParser from 'yargs-parser';
+import { appRootPath } from '../utils/app-root';
+import { detectPackageManager } from '../utils/detect-package-manager';
+import { fileExists, readJsonFile } from '../utils/fileutils';
+import { output } from './output';
 
-const rootDirectory = appRoot.path;
+const rootDirectory = appRootPath;
 
 export function workspaceSchematic(args: string[]) {
-  const parsedArgs = parseOptions(args);
+  const outDir = compileTools();
+  const parsedArgs = parseOptions(args, outDir);
   const logger = createConsoleLogger(
     parsedArgs.verbose,
     process.stdout,
     process.stderr
   );
-  const outDir = compileTools();
   if (parsedArgs.listSchematics) {
     return listSchematics(
       path.join(outDir, 'workspace-schematics.json'),
@@ -71,8 +79,12 @@ function getToolsOutDir() {
 
 function compileToolsDir(outDir: string) {
   copySync(path.join(rootDirectory, 'tools'), outDir);
+  const tsc =
+    platform() === 'win32'
+      ? `.\\node_modules\\.bin\\tsc`
+      : `./node_modules/.bin/tsc`;
   try {
-    execSync('tsc -p tools/tsconfig.tools.json', {
+    execSync(`${tsc} -p tools/tsconfig.tools.json`, {
       stdio: 'inherit',
       cwd: rootDirectory
     });
@@ -115,9 +127,10 @@ function createWorkflow(dryRun: boolean) {
   const root = normalize(rootDirectory);
   const host = new virtualFs.ScopedHost(new NodeJsSyncHost(), root);
   return new NodeWorkflow(host, {
-    packageManager: fileExists('yarn.lock') ? 'yarn' : 'npm',
+    packageManager: detectPackageManager(),
     root,
-    dryRun
+    dryRun,
+    registry: new schema.CoreSchemaRegistry(formats.standardFormats)
   });
 }
 
@@ -186,7 +199,14 @@ async function executeSchematic(
   outDir: string,
   logger: logging.Logger
 ) {
+  output.logSingleLine(
+    `${output.colors.gray(`Executing your local schematic`)}: ${schematicName}`
+  );
+
   let nothingDone = true;
+  let loggingQueue: string[] = [];
+  let hasError = false;
+
   workflow.reporter.subscribe((event: any) => {
     nothingDone = false;
     const eventPath = event.path.startsWith('/')
@@ -194,27 +214,54 @@ async function executeSchematic(
       : event.path;
     switch (event.kind) {
       case 'error':
+        hasError = true;
+
         const desc =
           event.description == 'alreadyExist'
             ? 'already exists'
             : 'does not exist.';
-        console.error(`error! ${eventPath} ${desc}.`);
+        logger.warn(`ERROR! ${eventPath} ${desc}.`);
         break;
       case 'update':
-        console.log(`update ${eventPath} (${event.content.length} bytes)`);
+        loggingQueue.push(
+          tags.oneLine`${terminal.white('UPDATE')} ${eventPath} (${
+            event.content.length
+          } bytes)`
+        );
         break;
       case 'create':
-        console.log(`create ${eventPath} (${event.content.length} bytes)`);
+        loggingQueue.push(
+          tags.oneLine`${terminal.green('CREATE')} ${eventPath} (${
+            event.content.length
+          } bytes)`
+        );
         break;
       case 'delete':
-        console.log(`delete ${eventPath}`);
+        loggingQueue.push(
+          tags.oneLine`${terminal.yellow('DELETE')} ${eventPath}`
+        );
         break;
       case 'rename':
         const eventToPath = event.to.startsWith('/')
           ? event.to.substr(1)
           : event.to;
-        console.log(`rename ${eventPath} => ${eventToPath}`);
+        loggingQueue.push(
+          tags.oneLine`${terminal.blue(
+            'RENAME'
+          )} ${eventPath} => ${eventToPath}`
+        );
         break;
+    }
+  });
+
+  workflow.lifeCycle.subscribe(event => {
+    if (event.kind === 'workflow-end' || event.kind === 'post-tasks-start') {
+      if (!hasError) {
+        loggingQueue.forEach(log => logger.info(log));
+      }
+
+      loggingQueue = [];
+      hasError = false;
     }
   });
 
@@ -227,6 +274,16 @@ async function executeSchematic(
     }
   });
   delete options._;
+
+  if (options.defaults) {
+    workflow.registry.addPreTransform(schema.transforms.addUndefinedDefaults);
+  } else {
+    workflow.registry.addPostTransform(schema.transforms.addUndefinedDefaults);
+  }
+
+  workflow.engineHost.registerOptionsTransform(
+    validateOptionsWithSchema(workflow.registry)
+  );
 
   // Add support for interactive prompts
   if (options.interactive) {
@@ -246,6 +303,10 @@ async function executeSchematic(
     if (nothingDone) {
       logger.info('Nothing to be done.');
     }
+
+    if (options.dryRun) {
+      logger.warn(`\nNOTE: The "dryRun" flag means no changes were made.`);
+    }
   } catch (err) {
     if (err instanceof UnsuccessfulWorkflowExecution) {
       // "See above" because we already printed the error.
@@ -256,9 +317,19 @@ async function executeSchematic(
   }
 }
 
-function parseOptions(args: string[]): { [k: string]: any } {
+function parseOptions(args: string[], outDir: string): { [k: string]: any } {
+  const schemaPath = path.join(outDir, args[0], 'schema.json');
+  let booleanProps = [];
+  if (fileExists(schemaPath)) {
+    const { properties } = readJsonFile(
+      path.join(outDir, args[0], 'schema.json')
+    );
+    booleanProps = Object.keys(properties).filter(
+      key => properties[key].type === 'boolean'
+    );
+  }
   return yargsParser(args, {
-    boolean: ['dryRun', 'listSchematics', 'interactive'],
+    boolean: ['dryRun', 'listSchematics', 'interactive', ...booleanProps],
     alias: {
       dryRun: ['d'],
       listSchematics: ['l']
@@ -273,14 +344,6 @@ function exists(file: string): boolean {
   try {
     return !!fs.statSync(file);
   } catch (e) {
-    return false;
-  }
-}
-
-function fileExists(filePath: string): boolean {
-  try {
-    return statSync(filePath).isFile();
-  } catch (err) {
     return false;
   }
 }

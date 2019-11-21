@@ -1,12 +1,13 @@
 {
-  "name": "nx/angular",
+  "name": "Nx Angular",
   "version": "0.1",
-  "extends": ["@schematics/angular"],
+  "extends": ["@schematics/angular", "@nrwl/workspace"],
   "schematics": {
-    "ng-add": {
-      "factory": "./src/schematics/ng-add/ng-add",
-      "schema": "./src/schematics/ng-add/schema.json",
-      "description": "Add @nrwl/react to a project",
+    "init": {
+      "factory": "./src/schematics/init/init",
+      "schema": "./src/schematics/init/schema.json",
+      "description": "Initialize the @nrwl/angular plugin",
+      "aliases": ["ng-add"],
       "hidden": true
     },
 
@@ -52,6 +53,34 @@
       "factory": "./src/schematics/upgrade-module/upgrade-module",
       "schema": "./src/schematics/upgrade-module/schema.json",
       "description": "Add an upgrade module"
+    },
+
+    "storybook-configuration": {
+      "factory": "./src/schematics/storybook-configuration/configuration",
+      "schema": "./src/schematics/storybook-configuration/schema.json",
+      "description": "Create stories/specs for all components declared in a library",
+      "hidden": false
+    },
+
+    "stories": {
+      "factory": "./src/schematics/stories/stories",
+      "schema": "./src/schematics/stories/schema.json",
+      "description": "Create stories/specs for all components declared in a library",
+      "hidden": false
+    },
+
+    "component-cypress-spec": {
+      "factory": "./src/schematics/component-cypress-spec/component-cypress-spec",
+      "schema": "./src/schematics/component-cypress-spec/schema.json",
+      "description": "Create a cypress spec for a ui component that has a story",
+      "hidden": true
+    },
+
+    "component-story": {
+      "factory": "./src/schematics/component-story/component-story",
+      "schema": "./src/schematics/component-story/schema.json",
+      "description": "Create a stories.ts file for a component",
+      "hidden": true
     }
   }
 }

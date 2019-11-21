@@ -1,38 +1,45 @@
 import {
+  apply,
   chain,
   externalSchematic,
+  mergeWith,
+  move,
   noop,
   Rule,
-  Tree,
-  SchematicContext,
   schematic,
-  mergeWith,
-  apply,
+  SchematicContext,
   template,
-  move,
+  Tree,
   url
 } from '@angular-devkit/schematics';
 import { Schema } from './schema';
 import * as ts from 'typescript';
-import { updateJsonInTree, readJsonInTree } from '@nrwl/workspace';
-import { insert, replaceNodeValue } from '@nrwl/workspace';
-import { toFileName } from '@nrwl/workspace';
-import { offsetFromRoot } from '@nrwl/workspace';
 import {
+  formatFiles,
   getNpmScope,
   getWorkspacePath,
+  insert,
+  offsetFromRoot,
+  readJsonInTree,
   replaceAppNameWithPath,
-  angularSchematicNames
+  replaceNodeValue,
+  toFileName,
+  updateJsonInTree,
+  updateWorkspace,
+  addLintFiles
 } from '@nrwl/workspace';
-import { formatFiles } from '@nrwl/workspace';
 import { join, normalize } from '@angular-devkit/core';
-import { addE2eTestRunner, addUnitTestRunner } from '../ng-add/ng-add';
+import init from '../init/init';
 import {
   addImportToModule,
   addImportToTestBed,
   getDecoratorPropertyValueNode
 } from '../../utils/ast-utils';
-import { insertImport } from '@nrwl/workspace/src/utils/ast-utils';
+import {
+  insertImport,
+  getProjectConfig,
+  updateWorkspaceInTree
+} from '@nrwl/workspace/src/utils/ast-utils';
 
 interface NormalizedSchema extends Schema {
   appProjectRoot: string;
@@ -40,6 +47,233 @@ interface NormalizedSchema extends Schema {
   e2eProjectRoot: string;
   parsedTags: string[];
 }
+
+const nrwlHomeTemplate = {
+  html: `
+<header class="flex">
+    <img alt="Nx logo" width="75" src="https://nx.dev/assets/images/nx-logo-white.svg" />
+    <h1>Welcome to {{title}}!</h1>
+</header>
+<main>
+    <h2>Resources &amp; Tools</h2>
+    <p>
+      Thank you for using and showing some ♥ for Nx.
+    </p>
+    <div class="flex github-star-container">
+      <a href="https://github.com/nrwl/nx" target="_blank" rel="noopener noreferrer"> If you like Nx, please give it a star:
+        <div class="github-star-badge">
+          <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            Star
+        </div>
+      </a>
+    </div>
+    <p>
+      Here are some links to help you get started.
+    </p>
+    <ul class="resources">
+        <li class="col-span-2">
+            <a
+                    class="resource flex"
+                    href="https://connect.nrwl.io/app/courses/nx-workspaces/intro"
+            >
+                Nx video course
+            </a>
+        </li>
+        <li class="col-span-2">
+            <a
+                    class="resource flex"
+                    href="https://nx.dev/angular/getting-started/what-is-nx"
+            >
+                Nx video tutorial
+            </a>
+        </li>
+        <li class="col-span-2">
+            <a
+                    class="resource flex"
+                    href="https://nx.dev/angular/tutorial/01-create-application"
+            >
+                Interactive tutorial
+            </a>
+        </li>
+        <li class="col-span-2">
+            <a class="resource flex" href="https://connect.nrwl.io/">
+                <img
+                        height="36"
+                        alt="Nrwl Connect"
+                        src="https://connect.nrwl.io/assets/img/CONNECT_ColorIcon.png"
+                />
+                <span class="gutter-left">Nrwl Connect</span>
+            </a>
+        </li>
+    </ul>
+    <h2>Next Steps</h2>
+    <p>Here are some things you can do with Nx.</p>
+    <details open>
+        <summary>Add UI library</summary>
+        <pre>
+# Generate UI lib
+ng g @nrwl/angular:lib ui
+
+# Add a component
+ng g @nrwl/angular:component xyz --project ui</pre
+        >
+    </details>
+    <details>
+        <summary>View dependency graph</summary>
+        <pre>nx dep-graph</pre>
+    </details>
+    <details>
+        <summary>Run affected commands</summary>
+        <pre>
+# see what's been affected by changes
+ng affected:dep-graph
+
+# run tests for current changes
+ng affected:test
+
+# run e2e tests for current changes
+ng affected:e2e
+</pre
+        >
+    </details>
+</main>
+  `,
+  css: `
+/*
+ * Remove template code below
+ */
+:host {
+  display: block;
+  font-family: sans-serif;
+  min-width: 300px;
+  max-width: 600px;
+  margin: 50px auto;
+}
+
+.gutter-left {
+  margin-left: 9px;
+}
+
+.col-span-2 {
+  grid-column: span 2;
+}
+
+.flex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+header {
+  background-color: #143055;
+  color: white;
+  padding: 5px;
+  border-radius: 3px;
+}
+
+main {
+  padding: 0 36px;
+}
+
+p {
+  text-align: center;
+}
+
+h1 {
+  text-align: center;
+  margin-left: 18px;
+  font-size: 24px;
+}
+
+h2 {
+  text-align: center;
+  font-size: 20px;
+  margin: 40px 0 10px 0;
+}
+
+.resources {
+  text-align: center;
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-gap: 9px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.resource {
+  color: #0094ba;
+  height: 36px;
+  background-color: rgba(0, 0, 0, 0);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  padding: 3px 9px;
+  text-decoration: none;
+}
+
+.resource:hover {
+  background-color: rgba(68, 138, 255, 0.04);
+}
+
+pre {
+  padding: 9px;
+  border-radius: 4px;
+  background-color: black;
+  color: #eee;
+}
+
+details {
+  border-radius: 4px;
+  color: #333;
+  background-color: rgba(0, 0, 0, 0);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 3px 9px;
+  margin-bottom: 9px;
+}
+
+summary {
+  cursor: pointer;
+  outline: none;
+  height: 36px;
+  line-height: 36px;
+}
+
+.github-star-container {
+  margin-top: 12px;
+  line-height: 20px;
+}
+
+.github-star-container a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: #333;
+}
+
+.github-star-badge {
+  color: #24292e;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid rgba(27,31,35,.2);
+  border-radius: 3px;
+  background-image: linear-gradient(-180deg,#fafbfc,#eff3f6 90%);
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+.github-star-badge:hover {
+  background-image: linear-gradient(-180deg,#f0f3f6,#e6ebf1 90%);
+  border-color: rgba(27,31,35,.35);
+  background-position: -.5em;
+}
+.github-star-badge .material-icons {
+  height: 16px;
+  width: 16px;
+  margin-right: 4px;
+}
+  `
+};
 
 function addRouterRootConfiguration(options: NormalizedSchema): Rule {
   return (host: Tree) => {
@@ -60,59 +294,51 @@ function addRouterRootConfiguration(options: NormalizedSchema): Rule {
       )
     ]);
 
-    if (options.skipTests !== true) {
-      const componentSpecPath = `${
-        options.appProjectRoot
-      }/src/app/app.component.spec.ts`;
-      const componentSpecSource = host
-        .read(componentSpecPath)!
-        .toString('utf-8');
-      const componentSpecSourceFile = ts.createSourceFile(
-        componentSpecPath,
-        componentSpecSource,
-        ts.ScriptTarget.Latest,
-        true
-      );
-      insert(host, componentSpecPath, [
-        insertImport(
-          componentSpecSourceFile,
-          componentSpecPath,
-          'RouterTestingModule',
-          '@angular/router/testing'
-        ),
-        ...addImportToTestBed(
-          componentSpecSourceFile,
-          componentSpecPath,
-          `RouterTestingModule`
-        )
-      ]);
-    }
-
     return host;
   };
 }
 
+function updateComponentStyles(options: NormalizedSchema): Rule {
+  return (host: Tree) => {
+    const content = nrwlHomeTemplate.css;
+
+    if (!options.inlineStyle) {
+      const filesMap = {
+        css: `${options.appProjectRoot}/src/app/app.component.css`,
+        scss: `${options.appProjectRoot}/src/app/app.component.scss`,
+        less: `${options.appProjectRoot}/src/app/app.component.less`,
+        styl: `${options.appProjectRoot}/src/app/app.component.styl`
+      };
+      return host.overwrite(filesMap[options.style], content);
+    }
+
+    // Inline component update
+    const modulePath = `${options.appProjectRoot}/src/app/app.component.ts`;
+    const templateNodeValue = getDecoratorPropertyValueNode(
+      host,
+      modulePath,
+      'Component',
+      'styles',
+      '@angular/core'
+    );
+    replaceNodeValue(
+      host,
+      modulePath,
+      templateNodeValue,
+      `[\`\n${content}\n\`],\n`
+    );
+  };
+}
+
+/**
+ *
+ * @param options
+ */
 function updateComponentTemplate(options: NormalizedSchema): Rule {
   return (host: Tree) => {
-    const baseContent = `
-<div style="text-align:center">
-  <h1>Welcome to {{title}}!</h1>
-  <img width="450" src="https://raw.githubusercontent.com/nrwl/nx/master/nx-logo.png">
-</div>
-
-<p>This is an Angular app built with <a href="https://nx.dev">Nx</a>.</p>
-<p>🔎 **Nx is a set of Angular CLI power-ups for modern development.**</p>
-
-<h2>Quick Start & Documentation</h2>
-
-<ul>
-<li><a href="https://nx.dev/getting-started/what-is-nx">30-minute video showing all Nx features</a></li>
-<li><a href="https://nx.dev/tutorial/01-create-application">Interactive tutorial</a></li>
-</ul>
-`;
     const content = options.routing
-      ? `${baseContent}\n<router-outlet></router-outlet>`
-      : baseContent;
+      ? `${nrwlHomeTemplate.html}\n<router-outlet></router-outlet>`
+      : nrwlHomeTemplate.html;
 
     if (!options.inlineTemplate) {
       return host.overwrite(
@@ -121,6 +347,7 @@ function updateComponentTemplate(options: NormalizedSchema): Rule {
       );
     }
 
+    // Inline component update
     const modulePath = `${options.appProjectRoot}/src/app/app.component.ts`;
     const templateNodeValue = getDecoratorPropertyValueNode(
       host,
@@ -133,8 +360,53 @@ function updateComponentTemplate(options: NormalizedSchema): Rule {
       host,
       modulePath,
       templateNodeValue,
-      `\`\n${baseContent}\n\`,\n`
+      `\`\n${nrwlHomeTemplate.html}\n\`,\n`
     );
+  };
+}
+
+function updateComponentSpec(options: NormalizedSchema) {
+  return (host: Tree) => {
+    if (options.skipTests !== true) {
+      const componentSpecPath = `${options.appProjectRoot}/src/app/app.component.spec.ts`;
+      const componentSpecSource = host
+        .read(componentSpecPath)!
+        .toString('utf-8');
+      const componentSpecSourceFile = ts.createSourceFile(
+        componentSpecPath,
+        componentSpecSource,
+        ts.ScriptTarget.Latest,
+        true
+      );
+
+      host.overwrite(
+        componentSpecPath,
+        componentSpecSource
+          .replace('.content span', 'h1')
+          .replace(
+            `${options.name} app is running!`,
+            `Welcome to ${options.name}!`
+          )
+      );
+
+      if (options.routing) {
+        insert(host, componentSpecPath, [
+          insertImport(
+            componentSpecSourceFile,
+            componentSpecPath,
+            'RouterTestingModule',
+            '@angular/router/testing'
+          ),
+          ...addImportToTestBed(
+            componentSpecSourceFile,
+            componentSpecPath,
+            `RouterTestingModule`
+          )
+        ]);
+      }
+    }
+
+    return host;
   };
 }
 
@@ -151,16 +423,18 @@ function updateLinting(options: NormalizedSchema): Rule {
 
           'directive-selector': [true, 'attribute', 'app', 'camelCase'],
           'component-selector': [true, 'element', 'app', 'kebab-case'],
-          'no-output-on-prefix': true,
-          'use-input-property-decorator': true,
-          'use-output-property-decorator': true,
-          'use-host-property-decorator': true,
+          'no-conflicting-lifecycle': true,
+          'no-host-metadata-property': true,
           'no-input-rename': true,
+          'no-inputs-metadata-property': true,
+          'no-output-native': true,
+          'no-output-on-prefix': true,
           'no-output-rename': true,
-          'use-life-cycle-interface': true,
-          'use-pipe-transform-interface': true,
-          'component-class-suffix': true,
-          'directive-class-suffix': true
+          'no-outputs-metadata-property': true,
+          'template-banana-in-box': true,
+          'template-no-negated-async': true,
+          'use-lifecycle-interface': true,
+          'use-pipe-transform-interface': true
         };
       }
       return json;
@@ -172,8 +446,12 @@ function updateLinting(options: NormalizedSchema): Rule {
   ]);
 }
 
-function addTsconfigs(options: NormalizedSchema): Rule {
+function addSchematicFiles(
+  appProjectRoot: string,
+  options: NormalizedSchema
+): Rule {
   return chain([
+    host => host.delete(`${appProjectRoot}/src/favicon.ico`),
     mergeWith(
       apply(url('./files'), [
         template({
@@ -182,18 +460,7 @@ function addTsconfigs(options: NormalizedSchema): Rule {
         }),
         move(options.appProjectRoot)
       ])
-    ),
-    options.e2eTestRunner === 'protractor'
-      ? mergeWith(
-          apply(url('./files'), [
-            template({
-              ...options,
-              offsetFromRoot: offsetFromRoot(options.e2eProjectRoot)
-            }),
-            move(options.e2eProjectRoot)
-          ])
-        )
-      : noop()
+    )
   ]);
 }
 
@@ -208,11 +475,21 @@ function updateProject(options: NormalizedSchema): Rule {
           options.appProjectRoot
         );
 
+        const angularSchematicNames = [
+          'class',
+          'component',
+          'directive',
+          'guard',
+          'module',
+          'pipe',
+          'service'
+        ];
+
         if (fixedProject.schematics) {
           angularSchematicNames.forEach(type => {
             const schematic = `@schematics/angular:${type}`;
             if (schematic in fixedProject.schematics) {
-              fixedProject.schematics[`@nrwl/workspace:${type}`] =
+              fixedProject.schematics[`@nrwl/angular:${type}`] =
                 fixedProject.schematics[schematic];
               delete fixedProject.schematics[schematic];
             }
@@ -224,8 +501,14 @@ function updateProject(options: NormalizedSchema): Rule {
         fixedProject.architect.lint.options.tsConfig = fixedProject.architect.lint.options.tsConfig.filter(
           path =>
             path !==
-            join(normalize(options.appProjectRoot), 'tsconfig.spec.json')
+              join(normalize(options.appProjectRoot), 'tsconfig.spec.json') &&
+            path !==
+              join(normalize(options.appProjectRoot), 'e2e/tsconfig.json')
         );
+        fixedProject.architect.lint.options.exclude.push(
+          '!' + join(normalize(options.appProjectRoot), '**')
+        );
+
         if (options.e2eTestRunner === 'none') {
           delete json.projects[options.e2eProjectName];
         }
@@ -238,15 +521,14 @@ function updateProject(options: NormalizedSchema): Rule {
           extends: `./tsconfig.json`,
           compilerOptions: {
             ...json.compilerOptions,
-            outDir: `${offsetFromRoot(options.appProjectRoot)}dist/out-tsc/${
-              options.appProjectRoot
-            }`
+            outDir: `${offsetFromRoot(options.appProjectRoot)}dist/out-tsc`
           },
-          exclude:
-            options.unitTestRunner === 'jest'
-              ? ['src/test-setup.ts', '**/*.spec.ts']
-              : ['src/test.ts', '**/*.spec.ts'],
-          include: ['**/*.ts']
+          exclude: options.enableIvy
+            ? undefined
+            : options.unitTestRunner === 'jest'
+            ? ['src/test-setup.ts', '**/*.spec.ts']
+            : ['src/test.ts', '**/*.spec.ts'],
+          include: [options.enableIvy ? 'src/**/*.d.ts' : '**/*.ts']
         };
       }),
       host => {
@@ -274,6 +556,20 @@ function updateProject(options: NormalizedSchema): Rule {
   };
 }
 
+function removeE2e(options: NormalizedSchema, e2eProjectRoot: string): Rule {
+  return chain([
+    host => {
+      host.delete(`${e2eProjectRoot}/src/app.e2e-spec.ts`);
+      host.delete(`${e2eProjectRoot}/src/app.po.ts`);
+      host.delete(`${e2eProjectRoot}/protractor.conf.js`);
+      host.delete(`${e2eProjectRoot}/tsconfig.json`);
+    },
+    updateWorkspace(workspace => {
+      workspace.projects.get(options.name).targets.delete('e2e');
+    })
+  ]);
+}
+
 function updateE2eProject(options: NormalizedSchema): Rule {
   return (host: Tree) => {
     // patching the spec file because of a bug in the CLI application schematic
@@ -282,37 +578,34 @@ function updateE2eProject(options: NormalizedSchema): Rule {
     const content = host.read(spec).toString();
     host.overwrite(
       spec,
-      content.replace('Welcome to app!', `Welcome to ${options.prefix}!`)
+      content.replace('my-app app is running!', `Welcome to ${options.name}!`)
     );
 
     return chain([
       updateJsonInTree(getWorkspacePath(host), json => {
-        const project = json.projects[options.e2eProjectName];
-
-        project.root = options.e2eProjectRoot;
-
-        project.architect.e2e.options.protractorConfig = `${
-          options.e2eProjectRoot
-        }/protractor.conf.js`;
-        project.architect.lint.options.tsConfig = `${
-          options.e2eProjectRoot
-        }/tsconfig.e2e.json`;
-
-        json.projects[options.e2eProjectName] = project;
-        return json;
-      }),
-      updateJsonInTree(`${options.e2eProjectRoot}/tsconfig.json`, json => {
-        return {
-          ...json,
-          compilerOptions: {
-            ...json.compilerOptions,
-            types: [
-              ...(json.compilerOptions.types || []),
-              'jasmine',
-              'jasminewd2'
-            ]
+        const project = {
+          root: options.e2eProjectRoot,
+          projectType: 'application',
+          architect: {
+            e2e: json.projects[options.name].architect.e2e,
+            lint: {
+              builder: '@angular-devkit/build-angular:tslint',
+              options: {
+                tsConfig: `${options.e2eProjectRoot}/tsconfig.e2e.json`,
+                exclude: [
+                  '**/node_modules/**',
+                  '!' + join(normalize(options.e2eProjectRoot), '**')
+                ]
+              }
+            }
           }
         };
+
+        project.architect.e2e.options.protractorConfig = `${options.e2eProjectRoot}/protractor.conf.js`;
+
+        json.projects[options.e2eProjectName] = project;
+        delete json.projects[options.name].architect.e2e;
+        return json;
       }),
       updateJsonInTree(`${options.e2eProjectRoot}/tsconfig.e2e.json`, json => {
         return {
@@ -320,9 +613,7 @@ function updateE2eProject(options: NormalizedSchema): Rule {
           extends: `./tsconfig.json`,
           compilerOptions: {
             ...json.compilerOptions,
-            outDir: `${offsetFromRoot(options.e2eProjectRoot)}dist/out-tsc/${
-              options.e2eProjectRoot
-            }`
+            outDir: `${offsetFromRoot(options.e2eProjectRoot)}dist/out-tsc`
           }
         };
       })
@@ -330,8 +621,29 @@ function updateE2eProject(options: NormalizedSchema): Rule {
   };
 }
 
-function setupTestRunners(options: NormalizedSchema): Rule {
-  return chain([addUnitTestRunner(options), addE2eTestRunner(options)]);
+function addProxyConfig(options: NormalizedSchema): Rule {
+  return (host: Tree, context: SchematicContext) => {
+    const projectConfig = getProjectConfig(host, options.name);
+    if (projectConfig.architect && projectConfig.architect.serve) {
+      const pathToProxyFile = `${projectConfig.root}/proxy.conf.json`;
+
+      return chain([
+        updateJsonInTree(pathToProxyFile, json => {
+          return {
+            [`/${options.backendProject}`]: {
+              target: 'http://localhost:3333',
+              secure: false
+            }
+          };
+        }),
+        updateWorkspaceInTree(json => {
+          projectConfig.architect.serve.options.proxyConfig = pathToProxyFile;
+          json.projects[options.name] = projectConfig;
+          return json;
+        })
+      ])(host, context);
+    }
+  };
 }
 
 export default function(schema: Schema): Rule {
@@ -340,17 +652,23 @@ export default function(schema: Schema): Rule {
 
     // Determine the roots where @schematics/angular will place the projects
     // This is not where the projects actually end up
-    const angularJson = readJsonInTree(host, getWorkspacePath(host));
+    const workspaceJson = readJsonInTree(host, getWorkspacePath(host));
 
-    const appProjectRoot = angularJson.newProjectRoot
-      ? `${angularJson.newProjectRoot}/${options.name}`
+    const appProjectRoot = workspaceJson.newProjectRoot
+      ? `${workspaceJson.newProjectRoot}/${options.name}`
       : options.name;
-    const e2eProjectRoot = angularJson.newProjectRoot
-      ? `${angularJson.newProjectRoot}/${options.e2eProjectName}`
-      : 'e2e';
+    const e2eProjectRoot = workspaceJson.newProjectRoot
+      ? `${workspaceJson.newProjectRoot}/${options.e2eProjectName}`
+      : `${options.name}/e2e`;
 
     return chain([
-      setupTestRunners(options),
+      init({
+        ...options,
+        skipFormat: true
+      }),
+      addLintFiles(options.appProjectRoot, options.linter, {
+        onlyGlobal: true
+      }),
       externalSchematic('@schematics/angular', 'application', {
         name: options.name,
         inlineStyle: options.inlineStyle,
@@ -359,21 +677,15 @@ export default function(schema: Schema): Rule {
         skipTests: options.skipTests,
         style: options.style,
         viewEncapsulation: options.viewEncapsulation,
+        enableIvy: options.enableIvy,
         routing: false,
         skipInstall: true,
         skipPackageJson: false
       }),
-      addTsconfigs(options),
-
+      addSchematicFiles(appProjectRoot, options),
       options.e2eTestRunner === 'protractor'
         ? move(e2eProjectRoot, options.e2eProjectRoot)
-        : host => {
-            host.delete(`${e2eProjectRoot}/src/app.e2e-spec.ts`);
-            host.delete(`${e2eProjectRoot}/src/app.po.ts`);
-            host.delete(`${e2eProjectRoot}/protractor.conf.js`);
-            host.delete(`${e2eProjectRoot}/tsconfig.e2e.json`);
-          },
-
+        : removeE2e(options, e2eProjectRoot),
       options.e2eTestRunner === 'protractor'
         ? updateE2eProject(options)
         : noop(),
@@ -381,14 +693,15 @@ export default function(schema: Schema): Rule {
         ? externalSchematic('@nrwl/cypress', 'cypress-project', {
             name: options.e2eProjectName,
             directory: options.directory,
-            project: options.name
+            project: options.name,
+            linter: options.linter
           })
         : noop(),
-
       move(appProjectRoot, options.appProjectRoot),
       updateProject(options),
-
       updateComponentTemplate(options),
+      updateComponentStyles(options),
+      updateComponentSpec(options),
       options.routing ? addRouterRootConfiguration(options) : noop(),
       updateLinting(options),
       options.unitTestRunner === 'jest'
@@ -404,6 +717,7 @@ export default function(schema: Schema): Rule {
             project: options.name
           })
         : noop(),
+      options.backendProject ? addProxyConfig(options) : noop(),
       formatFiles(options)
     ])(host, context);
   };

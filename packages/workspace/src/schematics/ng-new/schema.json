@@ -7,7 +7,6 @@
     "name": {
       "description": "The name of the workspace.",
       "type": "string",
-      "format": "html-selector",
       "$default": {
         "$source": "argv",
         "index": 0
@@ -17,18 +16,7 @@
     "style": {
       "description": "The file extension to be used for style files.",
       "type": "string",
-      "default": "css",
-      "x-prompt": {
-        "message": "Which stylesheet format would you like to use?",
-        "type": "list",
-        "items": [
-          { "value": "css", "label": "CSS" },
-          { "value": "scss", "label": "SCSS   [ http://sass-lang.com   ]" },
-          { "value": "sass", "label": "SASS   [ http://sass-lang.com   ]" },
-          { "value": "less", "label": "LESS   [ http://lesscss.org     ]" },
-          { "value": "styl", "label": "Stylus [ http://stylus-lang.com ]" }
-        ]
-      }
+      "default": "css"
     },
     "directory": {
       "type": "string",
@@ -54,7 +42,9 @@
     "commit": {
       "description": "Initial repository commit information.",
       "oneOf": [
-        { "type": "boolean" },
+        {
+          "type": "boolean"
+        },
         {
           "type": "object",
           "properties": {
@@ -76,7 +66,15 @@
     },
     "preset": {
       "description": "What to create in the new workspace",
-      "enum": ["empty", "angular", "react", "web-components", "full-stack"],
+      "enum": [
+        "angular",
+        "react",
+        "web-components",
+        "angular-nest",
+        "react-express",
+        "next",
+        "empty"
+      ],
       "default": "empty",
       "x-prompt": {
         "message": "What to create in the new workspace (You can create other applications and libraries at any point using 'ng g')",
@@ -99,11 +97,19 @@
             "label": "web components    [a workspace with a single app built using web components]"
           },
           {
-            "value": "full-stack",
-            "label": "full-stack        [a workspace with a full stack application (NestJS + Angular)]"
+            "value": "angular-nest",
+            "label": "angular-nest      [a workspace with a full stack application (Angular + Nest)]"
+          },
+          {
+            "value": "react-express",
+            "label": "react-express     [a workspace with a full stack application (React + Express)]"
           }
         ]
       }
+    },
+    "appName": {
+      "type": "string",
+      "description": "Application name."
     }
   }
 }

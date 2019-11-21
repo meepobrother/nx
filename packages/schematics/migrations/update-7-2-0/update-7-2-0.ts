@@ -10,9 +10,13 @@ import { normalize, join, Path, dirname } from '@angular-devkit/core';
 
 import { relative } from 'path';
 
-import { updateJsonInTree, readJsonInTree } from '@nrwl/workspace';
+import {
+  updateJsonInTree,
+  readJsonInTree,
+  updateWorkspaceInTree
+} from '@nrwl/workspace';
 import { getWorkspacePath } from '@nrwl/workspace';
-import { offsetFromRoot } from '@nrwl/workspace';
+import { offsetFromRoot, addUpdateTask } from '@nrwl/workspace';
 import { stripIndents } from '@angular-devkit/core/src/utils/literals';
 
 function getBuilders(project: any): string[] {
@@ -159,9 +163,9 @@ function updateTsConfigs(project: any): Rule {
 }
 
 function fixCypressConfigs(host: Tree, context: SchematicContext): Rule {
-  const angularJson = readJsonInTree(host, 'angular.json');
+  const workspaceJson = readJsonInTree(host, 'angular.json');
   return chain(
-    Object.entries<any>(angularJson.projects)
+    Object.entries<any>(workspaceJson.projects)
       .filter(
         ([key, project]) =>
           project.architect.e2e &&
@@ -175,12 +179,12 @@ function fixCypressConfigs(host: Tree, context: SchematicContext): Rule {
 }
 
 function fixCypressConfig(project: any, projectKey: string): Rule {
-  return updateJsonInTree('angular.json', angularJson => {
-    angularJson.projects[projectKey].architect.lint.options.tsConfig = join(
+  return updateWorkspaceInTree(workspaceJson => {
+    workspaceJson.projects[projectKey].architect.lint.options.tsConfig = join(
       project.root,
       'tsconfig.e2e.json'
     );
-    return angularJson;
+    return workspaceJson;
   });
 }
 
@@ -213,12 +217,7 @@ function switchToEs2015(host: Tree, context: SchematicContext) {
   });
 }
 
-const updateAngularCLI = externalSchematic('@schematics/update', 'update', {
-  packages: ['@angular/cli'],
-  from: '7.0.1',
-  to: '7.1.0',
-  force: true
-});
+const updateAngularCLI = addUpdateTask('@angular/cli', '7.1.0');
 
 export default function(): Rule {
   return chain([

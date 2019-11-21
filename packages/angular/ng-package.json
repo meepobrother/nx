@@ -4,9 +4,16 @@
     "entryFile": "index.ts",
     "umdModuleIds": {
       "@ngrx/effects": "ngrx.effects",
+      "@ngrx/entity": "ngrx.entity",
       "@ngrx/router-store": "ngrx.routerStore",
-      "@ngrx/store": "ngrx.store"
+      "@ngrx/store": "ngrx.store",
+      "jasmine-marbles": "jasmine-marbles"
     }
   },
-  "whitelistedNonPeerDependencies": ["@nrwl/", "@angular-devkit", "@schematics"]
+  "whitelistedNonPeerDependencies": [
+    "@nrwl/",
+    "@angular-devkit",
+    "@schematics",
+    "jasmine-marbles"
+  ]
 }

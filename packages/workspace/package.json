@@ -1,17 +1,21 @@
 {
   "name": "@nrwl/workspace",
   "version": "0.0.1",
-  "description": "Power-ups for Angular CLI",
+  "description": "Extensible Dev Tools for Monorepos",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nrwl/nx.git"
   },
   "keywords": [
-    "Workspace",
     "Monorepo",
-    "Schematics",
-    "Nx",
-    "Angular CLI"
+    "Angular",
+    "React",
+    "Web",
+    "Node",
+    "Nest",
+    "Jest",
+    "Cypress",
+    "CLI"
   ],
   "main": "index.js",
   "types": "index.d.ts",
@@ -20,10 +24,6 @@
   "bugs": {
     "url": "https://github.com/nrwl/nx/issues"
   },
-  "bin": {
-    "create-nx-workspace": "./bin/create-nx-workspace.js",
-    "nx": "./src/command-line/nx.js"
-  },
   "homepage": "https://nx.dev",
   "schematics": "./collection.json",
   "builders": "./builders.json",
@@ -31,6 +31,7 @@
     "requirements": {},
     "migrations": "./migrations.json",
     "packageGroup": [
+      "@nrwl/workspace",
       "@nrwl/angular",
       "@nrwl/cypress",
       "@nrwl/express",
@@ -42,23 +43,21 @@
     ]
   },
   "dependencies": {
-    "@angular-devkit/core": "~7.3.1",
-    "@angular-devkit/schematics": "~7.3.1",
-    "@angular-devkit/build-angular": "~0.13.8",
-    "app-root-path": "^2.0.1",
+    "@angular-devkit/core": "8.3.14",
+    "@angular-devkit/schematics": "8.3.14",
     "cosmiconfig": "4.0.0",
     "fs-extra": "6.0.0",
-    "graphviz": "0.0.8",
     "ignore": "5.0.4",
     "npm-run-all": "4.1.5",
     "opn": "^5.3.0",
-    "rxjs": "6.3.3",
+    "rxjs": "^6.4.0",
     "semver": "5.4.1",
     "strip-json-comments": "2.0.1",
     "tmp": "0.0.33",
-    "viz.js": "^1.8.1",
     "yargs-parser": "10.0.0",
     "yargs": "^11.0.0",
-    "prettier": "1.16.4"
+    "prettier": "1.18.2",
+    "chalk": "2.4.2",
+    "@nrwl/cli": "*"
   }
 }

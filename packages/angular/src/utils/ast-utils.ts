@@ -8,7 +8,7 @@ import {
   InsertChange,
   RemoveChange
 } from '@nrwl/workspace/src/utils/ast-utils';
-import { Tree } from '@angular-devkit/schematics';
+import { Tree, SchematicsException } from '@angular-devkit/schematics';
 import * as path from 'path';
 import { toFileName } from '@nrwl/workspace/src/utils/name-utils';
 
@@ -64,7 +64,7 @@ function _angularImportsFromNode(
   }
 }
 
-function getDecoratorMetadata(
+export function getDecoratorMetadata(
   source: ts.SourceFile,
   identifier: string,
   module: string
@@ -128,6 +128,38 @@ function getDecoratorMetadata(
         expr.arguments[0].kind == ts.SyntaxKind.ObjectLiteralExpression
     )
     .map(expr => expr.arguments[0] as ts.ObjectLiteralExpression);
+}
+
+function findClassDeclarationParent(node) {
+  if (ts.isClassDeclaration(node)) {
+    return node;
+  }
+  return node.parent && findClassDeclarationParent(node.parent);
+}
+/**
+ * Given a source file with @NgModule class(es), find the name of the first @NgModule class.
+ *
+ * @param source source file containing one or more @NgModule
+ * @returns the name of the first @NgModule, or `undefined` if none is found
+ */
+export function getFirstNgModuleName(source) {
+  // First, find the @NgModule decorators.
+  const ngModulesMetadata = getDecoratorMetadata(
+    source,
+    'NgModule',
+    '@angular/core'
+  );
+  if (ngModulesMetadata.length === 0) {
+    return undefined;
+  }
+  // Then walk parent pointers up the AST, looking for the ClassDeclaration parent of the NgModule
+  // metadata.
+  const moduleClass = findClassDeclarationParent(ngModulesMetadata[0]);
+  if (!moduleClass || !moduleClass.name) {
+    return undefined;
+  }
+  // Get the class name of the module ClassDeclaration.
+  return moduleClass.name.text;
 }
 
 function _addSymbolToNgModuleMetadata(
@@ -216,7 +248,8 @@ function _addSymbolToNgModuleMetadata(
     return [];
   }
 
-  if (Array.isArray(node)) {
+  const isArray = Array.isArray(node);
+  if (isArray) {
     const nodeArray = (node as {}) as Array<ts.Node>;
     const symbolsArray = nodeArray.map(node => node.getText());
     if (symbolsArray.includes(expression)) {
@@ -228,7 +261,7 @@ function _addSymbolToNgModuleMetadata(
 
   let toInsert: string;
   let position = node.getEnd();
-  if (node.kind == ts.SyntaxKind.ObjectLiteralExpression) {
+  if (!isArray && node.kind == ts.SyntaxKind.ObjectLiteralExpression) {
     // We haven't found the field in the metadata declaration. Insert a new
     // field.
     const expr = node as ts.ObjectLiteralExpression;
@@ -248,7 +281,7 @@ function _addSymbolToNgModuleMetadata(
         toInsert = `, ${metadataField}: [${expression}]`;
       }
     }
-  } else if (node.kind == ts.SyntaxKind.ArrayLiteralExpression) {
+  } else if (!isArray && node.kind == ts.SyntaxKind.ArrayLiteralExpression) {
     // We found the field but it's empty. Insert it just before the `]`.
     position--;
     toInsert = `${expression}`;
@@ -597,4 +630,20 @@ function getMatchingObjectLiteralElement(
         return false;
       })[0]
   );
+}
+
+export function getTsSourceFile(host: Tree, path: string): ts.SourceFile {
+  const buffer = host.read(path);
+  if (!buffer) {
+    throw new SchematicsException(`Could not read TS file (${path}).`);
+  }
+  const content = buffer.toString();
+  const source = ts.createSourceFile(
+    path,
+    content,
+    ts.ScriptTarget.Latest,
+    true
+  );
+
+  return source;
 }

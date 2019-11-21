@@ -28,6 +28,12 @@
       "default": false,
       "description": "Do not add dependencies to package.json."
     },
+    "linter": {
+      "description": "The tool to use for running lint checks.",
+      "type": "string",
+      "enum": ["eslint", "tslint"],
+      "default": "tslint"
+    },
     "unitTestRunner": {
       "type": "string",
       "enum": ["jest", "none"],
@@ -36,8 +42,7 @@
     },
     "tags": {
       "type": "string",
-      "description": "Add tags to the application (used for linting)",
-      "x-prompt": "Which tags would you like to add to the node application? (used for linting)"
+      "description": "Add tags to the application (used for linting)"
     },
     "frontendProject": {
       "type": "string",

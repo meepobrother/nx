@@ -1,54 +1,69 @@
 import * as webpack from 'webpack';
-import { Configuration, ProgressPlugin } from 'webpack';
-
-import * as ts from 'typescript';
-import { resolve } from 'path';
-
+import { Configuration, ProgressPlugin, Stats } from 'webpack';
+import { dirname } from 'path';
 import { LicenseWebpackPlugin } from 'license-webpack-plugin';
+import * as CopyWebpackPlugin from 'copy-webpack-plugin';
+import * as TerserWebpackPlugin from 'terser-webpack-plugin';
+import TsConfigPathsPlugin from 'tsconfig-paths-webpack-plugin';
+
+import { BuildBuilderOptions } from './types';
 import CircularDependencyPlugin = require('circular-dependency-plugin');
 import ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
-import * as CopyWebpackPlugin from 'copy-webpack-plugin';
-
-import { readTsConfig } from '@nrwl/workspace';
-import { BuildBuilderOptions } from './types';
-
-export const OUT_FILENAME = 'main.js';
+import { getOutputHashFormat } from './hash-format';
+import { createBabelConfig } from './babel-config';
 
 export function getBaseWebpackPartial(
-  options: BuildBuilderOptions
+  options: BuildBuilderOptions,
+  esm?: boolean,
+  isScriptOptimizeOn?: boolean
 ): Configuration {
-  const { options: compilerOptions } = readTsConfig(options.tsConfig);
-  const supportsEs2015 =
-    compilerOptions.target !== ts.ScriptTarget.ES3 &&
-    compilerOptions.target !== ts.ScriptTarget.ES5;
+  const extensions = ['.ts', '.tsx', '.mjs', '.js', '.jsx'];
+  const mainFields = [...(esm ? ['es2015'] : []), 'module', 'main'];
+  const hashFormat = getOutputHashFormat(options.outputHashing);
+  const suffixFormat = esm ? '.esm' : '.es5';
+  const filename = isScriptOptimizeOn
+    ? `[name]${hashFormat.script}${suffixFormat}.js`
+    : '[name].js';
+  const chunkFilename = isScriptOptimizeOn
+    ? `[name]${hashFormat.chunk}${suffixFormat}.js`
+    : '[name].js';
+
   const webpackConfig: Configuration = {
     entry: {
       main: [options.main]
     },
     devtool: options.sourceMap ? 'source-map' : false,
-    mode: options.optimization ? 'production' : 'development',
+    mode: isScriptOptimizeOn ? 'production' : 'development',
     output: {
       path: options.outputPath,
-      filename: OUT_FILENAME
+      filename,
+      chunkFilename
     },
     module: {
       rules: [
         {
-          test: /\.(j|t)sx?$/,
-          loader: `ts-loader`,
+          test: /\.([jt])sx?$/,
+          loader: `babel-loader`,
+          exclude: /node_modules/,
           options: {
-            configFile: options.tsConfig,
-            transpileOnly: true,
-            // https://github.com/TypeStrong/ts-loader/pull/685
-            experimentalWatchApi: true
+            ...createBabelConfig(dirname(options.main), esm, options.verbose),
+            cacheDirectory: true,
+            cacheCompression: false
           }
         }
       ]
     },
     resolve: {
-      extensions: ['.ts', '.tsx', '.mjs', '.js', '.jsx'],
-      alias: getAliases(options, compilerOptions),
-      mainFields: [...(supportsEs2015 ? ['es2015'] : []), 'module', 'main']
+      extensions,
+      alias: getAliases(options),
+      plugins: [
+        new TsConfigPathsPlugin({
+          configFile: options.tsConfig,
+          extensions,
+          mainFields
+        })
+      ],
+      mainFields
     },
     performance: {
       hints: false
@@ -62,8 +77,16 @@ export function getBaseWebpackPartial(
     watch: options.watch,
     watchOptions: {
       poll: options.poll
-    }
+    },
+    stats: getStatsConfig(options)
   };
+
+  if (isScriptOptimizeOn) {
+    webpackConfig.optimization = {
+      minimizer: [createTerserPlugin(esm)],
+      runtimeChunk: true
+    };
+  }
 
   const extraPlugins: webpack.Plugin[] = [];
 
@@ -72,14 +95,13 @@ export function getBaseWebpackPartial(
   }
 
   if (options.extractLicenses) {
-    extraPlugins.push(
-      new LicenseWebpackPlugin({
-        pattern: /.*/,
-        suppressErrors: true,
-        perChunkOutput: false,
-        outputFilename: `3rdpartylicenses.txt`
-      })
-    );
+    extraPlugins.push((new LicenseWebpackPlugin({
+      stats: {
+        errors: false
+      },
+      perChunkOutput: false,
+      outputFilename: `3rdpartylicenses.txt`
+    }) as unknown) as webpack.Plugin);
   }
 
   // process asset entries
@@ -121,24 +143,51 @@ export function getBaseWebpackPartial(
   return webpackConfig;
 }
 
-function getAliases(
-  options: BuildBuilderOptions,
-  compilerOptions: ts.CompilerOptions
-): { [key: string]: string } {
-  const replacements = [
-    ...options.fileReplacements,
-    ...(compilerOptions.paths
-      ? Object.entries(compilerOptions.paths).map(([importPath, values]) => ({
-          replace: importPath,
-          with: resolve(options.root, values[0])
-        }))
-      : [])
-  ];
-  return replacements.reduce(
+function getAliases(options: BuildBuilderOptions): { [key: string]: string } {
+  return options.fileReplacements.reduce(
     (aliases, replacement) => ({
       ...aliases,
       [replacement.replace]: replacement.with
     }),
     {}
   );
+}
+
+export function createTerserPlugin(esm: boolean) {
+  return new TerserWebpackPlugin({
+    parallel: true,
+    cache: true,
+    terserOptions: {
+      ecma: esm ? 6 : 5,
+      safari10: true,
+      output: {
+        ascii_only: true,
+        comments: false,
+        webkit: true
+      }
+    }
+  });
+}
+
+function getStatsConfig(options: BuildBuilderOptions): Stats.ToStringOptions {
+  return {
+    hash: true,
+    timings: false,
+    cached: false,
+    cachedAssets: false,
+    modules: false,
+    warnings: true,
+    errors: true,
+    colors: !options.verbose && !options.statsJson,
+    chunks: !options.verbose,
+    assets: !!options.verbose,
+    chunkOrigins: !!options.verbose,
+    chunkModules: !!options.verbose,
+    children: !!options.verbose,
+    reasons: !!options.verbose,
+    version: !!options.verbose,
+    errorDetails: !!options.verbose,
+    moduleTrace: !!options.verbose,
+    usedExports: !!options.verbose
+  };
 }

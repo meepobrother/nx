@@ -7,8 +7,10 @@
  */
 import { Rule, Tree, SchematicContext } from '@angular-devkit/schematics';
 import * as ts from 'typescript';
+import * as stripJsonComments from 'strip-json-comments';
 import { serializeJson } from './fileutils';
 import { NodePackageInstallTask } from '@angular-devkit/schematics/tasks';
+import { getWorkspacePath } from './cli-config-utils';
 
 function nodesByPosition(first: ts.Node, second: ts.Node): number {
   return first.getStart() - second.getStart();
@@ -43,7 +45,7 @@ function insertAfterLastOccurrence(
 
 export function findNodes(
   node: ts.Node,
-  kind: ts.SyntaxKind,
+  kind: ts.SyntaxKind | ts.SyntaxKind[],
   max = Infinity
 ): ts.Node[] {
   if (!node || max == 0) {
@@ -51,7 +53,10 @@ export function findNodes(
   }
 
   const arr: ts.Node[] = [];
-  if (node.kind === kind) {
+  const hasMatch = Array.isArray(kind)
+    ? kind.includes(node.kind)
+    : node.kind === kind;
+  if (hasMatch) {
     arr.push(node);
     max--;
   }
@@ -93,6 +98,7 @@ export function getSourceNodes(sourceFile: ts.SourceFile): ts.Node[] {
 
 export interface Change {
   apply(host: any): Promise<void>;
+
   readonly type: string;
   readonly path: string | null;
   readonly order: number;
@@ -104,6 +110,7 @@ export class NoopChange implements Change {
   description = 'No operation.';
   order = Infinity;
   path = null;
+
   apply() {
     return Promise.resolve();
   }
@@ -359,7 +366,7 @@ export function readJsonInTree<T = any>(host: Tree, path: string): T {
   if (!host.exists(path)) {
     throw new Error(`Cannot find ${path}`);
   }
-  const contents = host.read(path)!.toString('utf-8');
+  const contents = stripJsonComments(host.read(path)!.toString('utf-8'));
   try {
     return JSON.parse(contents);
   } catch (e) {
@@ -390,19 +397,65 @@ export function updateJsonInTree<T = any, O = T>(
   };
 }
 
+export function updateWorkspaceInTree<T = any, O = T>(
+  callback: (json: T, context: SchematicContext) => O
+): Rule {
+  return (host: Tree, context: SchematicContext): Tree => {
+    const path = getWorkspacePath(host);
+    host.overwrite(
+      path,
+      serializeJson(callback(readJsonInTree(host, path), context))
+    );
+    return host;
+  };
+}
+
+export function readWorkspace(host: Tree): any {
+  const path = getWorkspacePath(host);
+  return readJsonInTree(host, path);
+}
+
 let installAdded = false;
 
-export function addDepsToPackageJson(deps: any, devDeps: any): Rule {
+export function addDepsToPackageJson(
+  deps: any,
+  devDeps: any,
+  addInstall = true
+): Rule {
   return updateJsonInTree('package.json', (json, context: SchematicContext) => {
     json.dependencies = {
+      ...(json.dependencies || {}),
       ...deps,
       ...(json.dependencies || {})
     };
     json.devDependencies = {
+      ...(json.devDependencies || {}),
       ...devDeps,
       ...(json.devDependencies || {})
     };
-    if (!installAdded) {
+    if (addInstall && !installAdded) {
+      context.addTask(new NodePackageInstallTask());
+      installAdded = true;
+    }
+    return json;
+  });
+}
+
+export function updatePackageJsonDependencies(
+  deps: any,
+  devDeps: any,
+  addInstall = true
+): Rule {
+  return updateJsonInTree('package.json', (json, context: SchematicContext) => {
+    json.dependencies = {
+      ...(json.dependencies || {}),
+      ...deps
+    };
+    json.devDependencies = {
+      ...(json.devDependencies || {}),
+      ...devDeps
+    };
+    if (addInstall && !installAdded) {
       context.addTask(new NodePackageInstallTask());
       installAdded = true;
     }
@@ -411,8 +464,8 @@ export function addDepsToPackageJson(deps: any, devDeps: any): Rule {
 }
 
 export function getProjectConfig(host: Tree, name: string): any {
-  const angularJson = readJsonInTree(host, '/angular.json');
-  const projectConfig = angularJson.projects[name];
+  const workspaceJson = readJsonInTree(host, getWorkspacePath(host));
+  const projectConfig = workspaceJson.projects[name];
   if (!projectConfig) {
     throw new Error(`Cannot find project '${name}'`);
   } else {

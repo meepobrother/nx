@@ -15,6 +15,11 @@ const parsedArgs = yargsParser(process.argv, {
 
 console.log('parsedArgs', parsedArgs);
 
+if (!process.env.GITHUB_TOKEN_RELEASE_IT_NX) {
+  console.error('process.env.GITHUB_TOKEN_RELEASE_IT_NX is not set');
+  process.exit(1);
+}
+
 if (parsedArgs.help) {
   console.log(`
       Usage: yarn nx-release <version> [options]
@@ -78,9 +83,7 @@ function parseVersion(version) {
 const parsedVersion = parseVersion(parsedArgs._[2]);
 if (!parsedVersion.isValid) {
   console.error(
-    `\nError:\nThe specified version is not valid. You specified: "${
-      parsedVersion.version
-    }"`
+    `\nError:\nThe specified version is not valid. You specified: "${parsedVersion.version}"`
   );
   console.error(
     `Please run "yarn nx-release --help" for details on the acceptable version format.\n`
@@ -90,14 +93,14 @@ if (!parsedVersion.isValid) {
   console.log('parsed version: ', JSON.stringify(parsedVersion));
 }
 
-const cliVersion = JSON.parse(
+const { devDependencies } = JSON.parse(
   fs.readFileSync(path.join(__dirname, '../package.json'))
-).devDependencies['@angular/cli'];
+);
+const cliVersion = devDependencies['@angular/cli'];
+const typescriptVersion = devDependencies['typescript'];
 
 console.log('Executing build script:');
-const buildCommand = `./scripts/package.sh ${
-  parsedVersion.version
-} ${cliVersion}`;
+const buildCommand = `./scripts/package.sh ${parsedVersion.version} ${cliVersion} ${typescriptVersion}`;
 console.log(`> ${buildCommand}`);
 childProcess.execSync(buildCommand, {
   stdio: [0, 1, 2]
@@ -143,20 +146,23 @@ const options = {
    */
   pkgFiles: [
     'package.json',
-    'build/npm/bazel/package.json',
-    'build/npm/builders/package.json',
-    'build/npm/nx/package.json',
     'build/npm/schematics/package.json',
     'build/npm/create-nx-workspace/package.json',
     'build/npm/jest/package.json',
     'build/npm/cypress/package.json',
+    'build/npm/storybook/package.json',
     'build/npm/angular/package.json',
     'build/npm/react/package.json',
+    'build/npm/next/package.json',
     'build/npm/web/package.json',
     'build/npm/node/package.json',
     'build/npm/express/package.json',
     'build/npm/nest/package.json',
-    'build/npm/workspace/package.json'
+    'build/npm/workspace/package.json',
+    'build/npm/cli/package.json',
+    'build/npm/tao/package.json',
+    'build/npm/eslint-plugin-nx/package.json',
+    'build/npm/linter/package.json'
   ],
   increment: parsedVersion.version,
   requireUpstream: false,
@@ -196,9 +202,7 @@ releaseIt(options)
      * We always use either "latest" or "next" (i.e. no separate tags for alpha, beta etc)
      */
     const npmTag = parsedVersion.isPrerelease ? 'next' : 'latest';
-    const npmPublishCommand = `./scripts/publish.sh ${
-      output.version
-    } ${npmTag}`;
+    const npmPublishCommand = `./scripts/publish.sh ${output.version} ${npmTag}`;
     console.log('Executing publishing script for all packages:');
     console.log(`> ${npmPublishCommand}`);
     console.log(

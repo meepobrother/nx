@@ -1,5 +1,5 @@
-import { Rule, externalSchematic, chain } from '@angular-devkit/schematics';
-import { updateJsonInTree } from '@nrwl/workspace';
+import { Rule, chain } from '@angular-devkit/schematics';
+import { updateJsonInTree, addUpdateTask } from '@nrwl/workspace';
 
 export default function(): Rule {
   return chain([
@@ -17,17 +17,7 @@ export default function(): Rule {
 
       return json;
     }),
-    externalSchematic('@schematics/update', 'update', {
-      packages: ['@angular/core'],
-      from: '6.1.0',
-      to: '7.0.0',
-      force: true
-    }),
-    externalSchematic('@schematics/update', 'update', {
-      packages: ['@angular/cli'],
-      from: '6.2.0',
-      to: '7.0.1',
-      force: true
-    })
+    addUpdateTask('@angular/core', '7.0.0'),
+    addUpdateTask('@angular/cli', '7.0.1')
   ]);
 }

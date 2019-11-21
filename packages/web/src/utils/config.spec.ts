@@ -1,12 +1,14 @@
 import { getBaseWebpackPartial } from './config';
-import { normalize, getSystemPath } from '@angular-devkit/core';
 
 import * as ts from 'typescript';
 import { LicenseWebpackPlugin } from 'license-webpack-plugin';
-import CircularDependencyPlugin = require('circular-dependency-plugin');
-import ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+import TsConfigPathsPlugin from 'tsconfig-paths-webpack-plugin';
 import { ProgressPlugin } from 'webpack';
 import { BuildBuilderOptions } from './types';
+import CircularDependencyPlugin = require('circular-dependency-plugin');
+import ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+
+jest.mock('tsconfig-paths-webpack-plugin');
 
 describe('getBaseWebpackPartial', () => {
   let input: BuildBuilderOptions;
@@ -16,16 +18,19 @@ describe('getBaseWebpackPartial', () => {
       outputPath: 'dist',
       tsConfig: 'tsconfig.json',
       fileReplacements: [],
-      root: getSystemPath(normalize('/root')),
+      root: '/root',
       statsJson: false
     };
+    (<any>TsConfigPathsPlugin).mockImplementation(
+      function MockPathsPlugin() {}
+    );
   });
 
   describe('unconditional options', () => {
     it('should have output filename', () => {
       const result = getBaseWebpackPartial(input);
 
-      expect(result.output.filename).toEqual('main.js');
+      expect(result.output.filename).toEqual('[name].js');
     });
 
     it('should have output path', () => {
@@ -37,12 +42,12 @@ describe('getBaseWebpackPartial', () => {
     it('should have a rule for typescript', () => {
       const result = getBaseWebpackPartial(input);
 
-      const typescriptRule = result.module.rules.find(rule =>
+      const rule = result.module.rules.find(rule =>
         (rule.test as RegExp).test('app/main.ts')
       );
-      expect(typescriptRule).toBeTruthy();
+      expect(rule).toBeTruthy();
 
-      expect(typescriptRule.loader).toEqual('ts-loader');
+      expect(rule.loader).toEqual('babel-loader');
     });
 
     it('should split typescript type checking into a separate workers', () => {
@@ -85,6 +90,22 @@ describe('getBaseWebpackPartial', () => {
       expect(result.resolve.mainFields).toContain('module');
       expect(result.resolve.mainFields).toContain('main');
     });
+
+    it('should configure stats', () => {
+      const result = getBaseWebpackPartial(input);
+
+      expect(result.stats).toEqual(
+        jasmine.objectContaining({
+          hash: true,
+          timings: false,
+          cached: false,
+          cachedAssets: false,
+          modules: false,
+          warnings: true,
+          errors: true
+        })
+      );
+    });
   });
 
   describe('the main option', () => {
@@ -106,18 +127,6 @@ describe('getBaseWebpackPartial', () => {
   });
 
   describe('the tsConfig option', () => {
-    it('should set the correct typescript rule', () => {
-      const result = getBaseWebpackPartial(input);
-
-      expect(
-        result.module.rules.find(rule => rule.loader === 'ts-loader').options
-      ).toEqual({
-        configFile: 'tsconfig.json',
-        transpileOnly: true,
-        experimentalWatchApi: true
-      });
-    });
-
     it('should set the correct options for the type checker plugin', () => {
       const result = getBaseWebpackPartial(input);
 
@@ -127,7 +136,7 @@ describe('getBaseWebpackPartial', () => {
       expect(typeCheckerPlugin.options.tsconfig).toBe('tsconfig.json');
     });
 
-    it('should set aliases for compilerOptionPaths', () => {
+    it('should add the TsConfigPathsPlugin for resolving', () => {
       spyOn(ts, 'parseJsonConfigFileContent').and.returnValue({
         options: {
           paths: {
@@ -135,22 +144,45 @@ describe('getBaseWebpackPartial', () => {
           }
         }
       });
-
       const result = getBaseWebpackPartial(input);
-      expect(result.resolve.alias).toEqual({
-        '@npmScope/libraryName': '/root/libs/libraryName/src/index.ts'
-      });
+      expect(
+        result.resolve.plugins.some(
+          plugin => plugin instanceof TsConfigPathsPlugin
+        )
+      ).toEqual(true);
     });
 
     it('should include es2015 in mainFields if typescript is set es2015', () => {
-      spyOn(ts, 'parseJsonConfigFileContent').and.returnValue({
-        options: {
-          target: 'es2015'
-        }
-      });
-
-      const result = getBaseWebpackPartial(input);
+      const result = getBaseWebpackPartial(input, true);
       expect(result.resolve.mainFields).toContain('es2015');
+    });
+  });
+
+  describe('ES modules', () => {
+    it('should override preset-env target for esm', () => {
+      const result = getBaseWebpackPartial(input, true);
+
+      expect(
+        (result.module.rules.find(rule => rule.loader === 'babel-loader')
+          .options as any).presets.find(
+          p => p[0].indexOf('@babel/preset-env') !== -1
+        )[1]
+      ).toMatchObject({
+        targets: { esmodules: true }
+      });
+    });
+
+    it('should not override preset-env target for es5', () => {
+      const result = getBaseWebpackPartial(input, false);
+
+      expect(
+        (result.module.rules.find(rule => rule.loader === 'babel-loader')
+          .options as any).presets.find(
+          p => p[0].indexOf('@babel/preset-env') !== -1
+        )[1]
+      ).toMatchObject({
+        targets: undefined
+      });
     });
   });
 
@@ -218,7 +250,7 @@ describe('getBaseWebpackPartial', () => {
     });
   });
 
-  describe('the optimization option', () => {
+  describe('script optimization', () => {
     describe('by default', () => {
       it('should set the mode to development', () => {
         const result = getBaseWebpackPartial(input);
@@ -229,10 +261,7 @@ describe('getBaseWebpackPartial', () => {
 
     describe('when true', () => {
       it('should set the mode to production', () => {
-        const result = getBaseWebpackPartial({
-          ...input,
-          optimization: true
-        });
+        const result = getBaseWebpackPartial(input, true, true);
 
         expect(result.mode).toEqual('production');
       });
@@ -318,14 +347,9 @@ describe('getBaseWebpackPartial', () => {
 
       const licensePlugin = result.plugins.find(
         plugin => plugin instanceof LicenseWebpackPlugin
-      ) as LicenseWebpackPlugin;
-      const options = (<any>licensePlugin).options;
+      );
 
       expect(licensePlugin).toBeTruthy();
-      expect(options.pattern).toEqual(/.*/);
-      expect(options.suppressErrors).toEqual(true);
-      expect(options.perChunkOutput).toEqual(false);
-      expect(options.outputFilename).toEqual('3rdpartylicenses.txt');
     });
   });
 
@@ -339,6 +363,53 @@ describe('getBaseWebpackPartial', () => {
       expect(
         result.plugins.find(plugin => plugin instanceof ProgressPlugin)
       ).toBeTruthy();
+    });
+  });
+
+  describe('the verbose option', () => {
+    describe('when false', () => {
+      it('should configure stats to be not verbose', () => {
+        const result = getBaseWebpackPartial(input);
+
+        expect(result.stats).toEqual(
+          jasmine.objectContaining({
+            colors: true,
+            chunks: true,
+            assets: false,
+            chunkOrigins: false,
+            chunkModules: false,
+            children: false,
+            reasons: false,
+            version: false,
+            errorDetails: false,
+            moduleTrace: false,
+            usedExports: false
+          })
+        );
+      });
+    });
+
+    describe('when true', () => {
+      it('should configure stats to be verbose', () => {
+        input.verbose = true;
+        const result = getBaseWebpackPartial(input);
+
+        expect(result.stats).toEqual(
+          jasmine.objectContaining({
+            colors: false,
+            chunks: false,
+            assets: true,
+            chunkOrigins: true,
+            chunkModules: true,
+            children: true,
+            reasons: true,
+            version: true,
+            errorDetails: true,
+            moduleTrace: true,
+            usedExports: true
+          })
+        );
+      });
     });
   });
 });

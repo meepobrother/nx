@@ -1,4 +1,4 @@
-import { Tree, VirtualTree } from '@angular-devkit/schematics';
+import { Tree } from '@angular-devkit/schematics';
 import { createEmptyWorkspace, getFileContent } from '@nrwl/workspace/testing';
 import * as stripJsonComments from 'strip-json-comments';
 import { readJsonInTree, updateJsonInTree, NxJson } from '@nrwl/workspace';
@@ -8,19 +8,32 @@ describe('app', () => {
   let appTree: Tree;
 
   beforeEach(() => {
-    appTree = new VirtualTree();
+    appTree = Tree.empty();
     appTree = createEmptyWorkspace(appTree);
   });
 
   describe('not nested', () => {
-    it('should update angular.json', async () => {
+    it('should update workspace.json', async () => {
       const tree = await runSchematic('app', { name: 'myApp' }, appTree);
-      const angularJson = readJsonInTree(tree, '/angular.json');
+      const workspaceJson = readJsonInTree(tree, '/workspace.json');
 
-      expect(angularJson.projects['my-app'].root).toEqual('apps/my-app/');
-      expect(angularJson.projects['my-app-e2e'].root).toEqual(
+      expect(workspaceJson.projects['my-app'].root).toEqual('apps/my-app');
+      expect(workspaceJson.projects['my-app-e2e'].root).toEqual(
         'apps/my-app-e2e'
       );
+
+      expect(
+        workspaceJson.projects['my-app'].architect.lint.options.exclude
+      ).toEqual(['**/node_modules/**', '!apps/my-app/**']);
+      expect(
+        workspaceJson.projects['my-app-e2e'].architect.lint.options.exclude
+      ).toEqual(['**/node_modules/**', '!apps/my-app-e2e/**']);
+    });
+
+    it('should remove the e2e target on the application', async () => {
+      const tree = await runSchematic('app', { name: 'myApp' }, appTree);
+      const workspaceJson = readJsonInTree(tree, '/workspace.json');
+      expect(workspaceJson.projects['my-app'].architect.e2e).not.toBeDefined();
     });
 
     it('should update nx.json', async () => {
@@ -60,9 +73,7 @@ describe('app', () => {
       const tsconfigApp = JSON.parse(
         stripJsonComments(getFileContent(tree, 'apps/my-app/tsconfig.app.json'))
       );
-      expect(tsconfigApp.compilerOptions.outDir).toEqual(
-        '../../dist/out-tsc/apps/my-app'
-      );
+      expect(tsconfigApp.compilerOptions.outDir).toEqual('../../dist/out-tsc');
       expect(tsconfigApp.extends).toEqual('./tsconfig.json');
 
       const tslintJson = JSON.parse(
@@ -76,9 +87,6 @@ describe('app', () => {
           getFileContent(tree, 'apps/my-app-e2e/tsconfig.e2e.json')
         )
       );
-      // expect(tsconfigE2E.compilerOptions.outDir).toEqual(
-      //   '../../dist/out-tsc/apps/my-app-e2e'
-      // );
       expect(tsconfigE2E.extends).toEqual('./tsconfig.json');
     });
 
@@ -99,8 +107,10 @@ describe('app', () => {
       let appE2eSpec = noPrefix
         .read('apps/my-app-e2e/src/app.e2e-spec.ts')
         .toString();
-      let angularJson = JSON.parse(noPrefix.read('angular.json').toString());
-      let myAppPrefix = angularJson.projects['my-app'].prefix;
+      let workspaceJson = JSON.parse(
+        noPrefix.read('workspace.json').toString()
+      );
+      let myAppPrefix = workspaceJson.projects['my-app'].prefix;
 
       expect(myAppPrefix).toEqual('proj');
       expect(appE2eSpec).toContain('Welcome to my-app!');
@@ -110,8 +120,8 @@ describe('app', () => {
       appE2eSpec = withPrefix
         .read('apps/my-app-e2e/src/app.e2e-spec.ts')
         .toString();
-      angularJson = JSON.parse(withPrefix.read('angular.json').toString());
-      myAppPrefix = angularJson.projects['my-app'].prefix;
+      workspaceJson = JSON.parse(withPrefix.read('workspace.json').toString());
+      myAppPrefix = workspaceJson.projects['my-app'].prefix;
 
       expect(myAppPrefix).toEqual('custom');
       expect(appE2eSpec).toContain('Welcome to my-app!');
@@ -119,7 +129,7 @@ describe('app', () => {
 
     xit('should work if the new project root is changed', async () => {
       appTree = await callRule(
-        updateJsonInTree('/angular.json', json => ({
+        updateJsonInTree('/workspace.json', json => ({
           ...json,
           newProjectRoot: 'newProjectRoot'
         })),
@@ -130,23 +140,37 @@ describe('app', () => {
       expect(result.exists('apps/my-app/src/main.ts')).toEqual(true);
       expect(result.exists('apps/my-app-e2e/protractor.conf.js')).toEqual(true);
     });
+
+    it('should set projectType to application', async () => {
+      const tree = await runSchematic('app', { name: 'app' }, appTree);
+      const workspaceJson = readJsonInTree(tree, '/workspace.json');
+      expect(workspaceJson.projects['app'].projectType).toEqual('application');
+    });
   });
 
   describe('nested', () => {
-    it('should update angular.json', async () => {
+    it('should update workspace.json', async () => {
       const tree = await runSchematic(
         'app',
         { name: 'myApp', directory: 'myDir' },
         appTree
       );
-      const angularJson = readJsonInTree(tree, '/angular.json');
+      const workspaceJson = readJsonInTree(tree, '/workspace.json');
 
-      expect(angularJson.projects['my-dir-my-app'].root).toEqual(
-        'apps/my-dir/my-app/'
+      expect(workspaceJson.projects['my-dir-my-app'].root).toEqual(
+        'apps/my-dir/my-app'
       );
-      expect(angularJson.projects['my-dir-my-app-e2e'].root).toEqual(
+      expect(workspaceJson.projects['my-dir-my-app-e2e'].root).toEqual(
         'apps/my-dir/my-app-e2e'
       );
+
+      expect(
+        workspaceJson.projects['my-dir-my-app'].architect.lint.options.exclude
+      ).toEqual(['**/node_modules/**', '!apps/my-dir/my-app/**']);
+      expect(
+        workspaceJson.projects['my-dir-my-app-e2e'].architect.lint.options
+          .exclude
+      ).toEqual(['**/node_modules/**', '!apps/my-dir/my-app-e2e/**']);
     });
 
     it('should update nx.json', async () => {
@@ -206,7 +230,7 @@ describe('app', () => {
         {
           path: 'apps/my-dir/my-app/tsconfig.app.json',
           lookupFn: json => json.compilerOptions.outDir,
-          expectedValue: '../../../dist/out-tsc/apps/my-dir/my-app'
+          expectedValue: '../../../dist/out-tsc'
         },
         {
           path: 'apps/my-dir/my-app-e2e/tsconfig.json',
@@ -266,7 +290,7 @@ describe('app', () => {
       ).toBeTruthy();
       expect(
         getFileContent(tree, 'apps/my-dir/my-app/src/app/app.component.html')
-      ).toContain('This is an Angular app built with');
+      ).toContain('Thank you for using and showing some ♥ for Nx.');
     });
 
     it("should update `template`'s property of AppComponent with Nx content", async () => {
@@ -277,7 +301,22 @@ describe('app', () => {
       );
       expect(
         getFileContent(tree, 'apps/my-dir/my-app/src/app/app.component.ts')
-      ).toContain('This is an Angular app built with');
+      ).toContain('Thank you for using and showing some ♥ for Nx.');
+    });
+
+    it('should update the AppComponent spec to target Nx content', async () => {
+      const tree = await runSchematic(
+        'app',
+        { name: 'myApp', directory: 'myDir', inlineTemplate: true },
+        appTree
+      );
+      const testFileContent = getFileContent(
+        tree,
+        'apps/my-dir/my-app/src/app/app.component.spec.ts'
+      );
+
+      expect(testFileContent).toContain(`querySelector('h1')`);
+      expect(testFileContent).toContain('Welcome to my-dir-my-app!');
     });
   });
 
@@ -299,10 +338,10 @@ describe('app', () => {
         { name: 'myApp', style: 'scss' },
         appTree
       );
-      const angularJson = readJsonInTree(result, 'angular.json');
+      const workspaceJson = readJsonInTree(result, 'workspace.json');
 
-      expect(angularJson.projects['my-app'].schematics).toEqual({
-        '@nrwl/workspace:component': {
+      expect(workspaceJson.projects['my-app'].schematics).toEqual({
+        '@nrwl/angular:component': {
           style: 'scss'
         }
       });
@@ -319,12 +358,12 @@ describe('app', () => {
 
       expect(tree.exists('apps/my-app/tsconfig.spec.json')).toBeTruthy();
       expect(tree.exists('apps/my-app/karma.conf.js')).toBeTruthy();
-      const angularJson = readJsonInTree(tree, 'angular.json');
-      expect(angularJson.projects['my-app'].architect.test.builder).toEqual(
+      const workspaceJson = readJsonInTree(tree, 'workspace.json');
+      expect(workspaceJson.projects['my-app'].architect.test.builder).toEqual(
         '@angular-devkit/build-angular:karma'
       );
       expect(
-        angularJson.projects['my-app'].architect.lint.options.tsConfig
+        workspaceJson.projects['my-app'].architect.lint.options.tsConfig
       ).toEqual([
         'apps/my-app/tsconfig.app.json',
         'apps/my-app/tsconfig.spec.json'
@@ -335,7 +374,7 @@ describe('app', () => {
       );
       expect(tsconfigAppJson.exclude).toEqual(['src/test.ts', '**/*.spec.ts']);
       expect(tsconfigAppJson.compilerOptions.outDir).toEqual(
-        '../../dist/out-tsc/apps/my-app'
+        '../../dist/out-tsc'
       );
     });
   });
@@ -352,45 +391,153 @@ describe('app', () => {
       expect(tree.exists('apps/my-app/tsconfig.spec.json')).toBeFalsy();
       expect(tree.exists('apps/my-app/jest.config.js')).toBeFalsy();
       expect(tree.exists('apps/my-app/karma.config.js')).toBeFalsy();
-      const angularJson = readJsonInTree(tree, 'angular.json');
-      expect(angularJson.projects['my-app'].architect.test).toBeUndefined();
+      const workspaceJson = readJsonInTree(tree, 'workspace.json');
+      expect(workspaceJson.projects['my-app'].architect.test).toBeUndefined();
       expect(
-        angularJson.projects['my-app'].architect.lint.options.tsConfig
+        workspaceJson.projects['my-app'].architect.lint.options.tsConfig
       ).toEqual(['apps/my-app/tsconfig.app.json']);
     });
   });
 
-  describe('--e2e-test-runner none', () => {
-    it('should not generate test configuration', async () => {
-      const tree = await runSchematic(
-        'app',
-        { name: 'myApp', e2eTestRunner: 'none' },
-        appTree
-      );
-      expect(tree.exists('apps/my-app-e2e')).toBeFalsy();
-      const angularJson = readJsonInTree(tree, 'angular.json');
-      expect(angularJson.projects['my-app-e2e']).toBeUndefined();
+  describe('--e2e-test-runner', () => {
+    describe('protractor', () => {
+      it('should update workspace.json', async () => {
+        const tree = await runSchematic(
+          'app',
+          { name: 'myApp', e2eTestRunner: 'protractor' },
+          appTree
+        );
+        expect(tree.exists('apps/my-app-e2e')).toBeFalsy();
+        const workspaceJson = readJsonInTree(tree, 'workspace.json');
+        expect(
+          workspaceJson.projects['my-app'].architect.e2e
+        ).not.toBeDefined();
+        expect(workspaceJson.projects['my-app-e2e']).toEqual({
+          root: 'apps/my-app-e2e',
+          projectType: 'application',
+          architect: {
+            e2e: {
+              builder: '@angular-devkit/build-angular:protractor',
+              options: {
+                devServerTarget: 'my-app:serve',
+                protractorConfig: 'apps/my-app-e2e/protractor.conf.js'
+              },
+              configurations: {
+                production: {
+                  devServerTarget: 'my-app:serve:production'
+                }
+              }
+            },
+            lint: {
+              builder: '@angular-devkit/build-angular:tslint',
+              options: {
+                tsConfig: 'apps/my-app-e2e/tsconfig.e2e.json',
+                exclude: ['**/node_modules/**', '!apps/my-app-e2e/**']
+              }
+            }
+          }
+        });
+      });
+    });
+
+    describe('none', () => {
+      it('should not generate test configuration', async () => {
+        const tree = await runSchematic(
+          'app',
+          { name: 'myApp', e2eTestRunner: 'none' },
+          appTree
+        );
+        expect(tree.exists('apps/my-app-e2e')).toBeFalsy();
+        const workspaceJson = readJsonInTree(tree, 'workspace.json');
+        expect(workspaceJson.projects['my-app-e2e']).toBeUndefined();
+      });
     });
   });
 
   describe('replaceAppNameWithPath', () => {
-    it('should protect `angular.json` commands and properties', async () => {
+    it('should protect `workspace.json` commands and properties', async () => {
       const tree = await runSchematic('app', { name: 'ui' }, appTree);
-      const angularJson = readJsonInTree(tree, 'angular.json');
-      expect(angularJson.projects['ui']).toBeDefined();
+      const workspaceJson = readJsonInTree(tree, 'workspace.json');
+      expect(workspaceJson.projects['ui']).toBeDefined();
       expect(
-        angularJson.projects['ui']['architect']['build']['builder']
+        workspaceJson.projects['ui']['architect']['build']['builder']
       ).toEqual('@angular-devkit/build-angular:browser');
     });
 
-    it('should protect `angular.json` sensible properties value to be renamed', async () => {
+    it('should protect `workspace.json` sensible properties value to be renamed', async () => {
       const tree = await runSchematic(
         'app',
         { name: 'ui', prefix: 'ui' },
         appTree
       );
-      const angularJson = readJsonInTree(tree, 'angular.json');
-      expect(angularJson.projects['ui'].prefix).toEqual('ui');
+      const workspaceJson = readJsonInTree(tree, 'workspace.json');
+      expect(workspaceJson.projects['ui'].prefix).toEqual('ui');
+    });
+  });
+
+  describe('--backend-project', () => {
+    describe('with a backend project', () => {
+      it('should add a proxy.conf.json to app', async () => {
+        const tree = await runSchematic(
+          'app',
+          { name: 'customer-ui', backendProject: 'customer-api' },
+          appTree
+        );
+
+        const proxyConfContent = JSON.stringify(
+          {
+            '/customer-api': {
+              target: 'http://localhost:3333',
+              secure: false
+            }
+          },
+          null,
+          2
+        );
+
+        expect(tree.exists('apps/customer-ui/proxy.conf.json')).toBeTruthy();
+        expect(tree.readContent('apps/customer-ui/proxy.conf.json')).toContain(
+          proxyConfContent
+        );
+      });
+    });
+
+    describe('with no backend project', () => {
+      it('should not generate a proxy.conf.json', async () => {
+        const tree = await runSchematic(
+          'app',
+          { name: 'customer-ui' },
+          appTree
+        );
+
+        expect(tree.exists('apps/customer-ui/proxy.conf.json')).toBeFalsy();
+      });
+    });
+  });
+
+  describe('--enable-ivy', () => {
+    it('should not exclude files in the tsconfig.app.json', async () => {
+      const tree = await runSchematic(
+        'app',
+        { name: 'my-app', enableIvy: true },
+        appTree
+      );
+
+      expect(tree.readContent('apps/my-app/tsconfig.app.json')).not.toContain(
+        'exclude'
+      );
+    });
+
+    it('should only include dts files in the tsconfig.app.json', async () => {
+      const tree = await runSchematic(
+        'app',
+        { name: 'my-app', enableIvy: true },
+        appTree
+      );
+
+      expect(tree.readContent('apps/my-app/tsconfig.app.json')).toContain(
+        `\"include\": [\"src/**/*.d.ts\"]`
+      );
     });
   });
 });

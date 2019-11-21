@@ -1,38 +1,42 @@
 import { join, normalize } from '@angular-devkit/core';
 import {
+  apply,
   chain,
   externalSchematic,
-  noop,
-  Rule,
-  Tree,
-  SchematicContext,
-  schematic,
-  url,
-  apply,
+  MergeStrategy,
   mergeWith,
   move,
+  noop,
+  Rule,
+  schematic,
+  SchematicContext,
   template,
-  MergeStrategy
+  Tree,
+  url
 } from '@angular-devkit/schematics';
 import { Schema } from './schema';
 import * as path from 'path';
 import * as ts from 'typescript';
 
 import {
-  NxJson,
-  updateJsonInTree,
-  readJsonInTree,
-  offsetFromRoot
-} from '@nrwl/workspace';
-import { addGlobal, addIncludeToTsConfig, insert } from '@nrwl/workspace';
-import { toClassName, toFileName, toPropertyName } from '@nrwl/workspace';
-import {
+  addGlobal,
+  addIncludeToTsConfig,
+  addLintFiles,
+  formatFiles,
   getNpmScope,
   getWorkspacePath,
-  replaceAppNameWithPath
+  insert,
+  Linter,
+  NxJson,
+  offsetFromRoot,
+  readJsonInTree,
+  replaceAppNameWithPath,
+  toClassName,
+  toFileName,
+  toPropertyName,
+  updateJsonInTree
 } from '@nrwl/workspace';
-import { formatFiles } from '@nrwl/workspace';
-import { addUnitTestRunner } from '../ng-add/ng-add';
+import { addUnitTestRunner } from '../init/init';
 import { addImportToModule, addRoute } from '../../utils/ast-utils';
 import { insertImport } from '@nrwl/workspace/src/utils/ast-utils';
 
@@ -125,17 +129,15 @@ function addLoadChildren(options: NormalizedSchema): Rule {
       true
     );
 
-    const loadChildren = `@${npmScope}/${options.projectDirectory}#${
-      options.moduleName
-    }`;
-
     insert(host, options.parentModule, [
       ...addRoute(
         options.parentModule,
         sourceFile,
         `{path: '${toFileName(
           options.fileName
-        )}', loadChildren: '${loadChildren}'}`
+        )}', loadChildren: () => import('@${npmScope}/${
+          options.projectDirectory
+        }').then(module => module.${options.moduleName})}`
       )
     ]);
 
@@ -226,9 +228,19 @@ function updateNgPackage(options: NormalizedSchema): Rule {
   }`;
   return chain([
     updateJsonInTree(`${options.projectRoot}/ng-package.json`, json => {
+      let $schema = json.$schema;
+      if (json.$schema && json.$schema.indexOf('node_modules') >= 0) {
+        $schema = `${offsetFromRoot(
+          options.projectRoot
+        )}${json.$schema.substring(
+          json.$schema.indexOf('node_modules'),
+          json.$schema.length
+        )}`;
+      }
       return {
         ...json,
-        dest
+        dest,
+        $schema
       };
     })
   ]);
@@ -320,7 +332,7 @@ function updateProject(options: NormalizedSchema): Rule {
         if (options.style !== 'css') {
           fixedProject.schematics = {
             ...fixedProject.schematics,
-            '@nrwl/workspace:component': {
+            '@nrwl/angular:component': {
               styleext: options.style
             }
           };
@@ -336,20 +348,28 @@ function updateProject(options: NormalizedSchema): Rule {
           path =>
             path !== join(normalize(options.projectRoot), 'tsconfig.spec.json')
         );
+        fixedProject.architect.lint.options.exclude.push(
+          '!' + join(normalize(options.projectRoot), '**')
+        );
 
         json.projects[options.name] = fixedProject;
         return json;
       }),
       updateJsonInTree(`${options.projectRoot}/tsconfig.lib.json`, json => {
-        json.exclude = json.exclude || [];
+        if (options.unitTestRunner === 'jest') {
+          json.exclude = ['src/test-setup.ts', '**/*.spec.ts'];
+        } else if (options.unitTestRunner === 'none') {
+          json.exclude = [];
+        } else {
+          json.exclude = json.exclude || [];
+        }
+
         return {
           ...json,
           extends: `./tsconfig.json`,
           compilerOptions: {
             ...json.compilerOptions,
-            outDir: `${offsetFromRoot(options.projectRoot)}dist/out-tsc/${
-              options.projectRoot
-            }`
+            outDir: `${offsetFromRoot(options.projectRoot)}dist/out-tsc`
           }
         };
       }),
@@ -421,6 +441,7 @@ export default function(schema: Schema): Rule {
     }
 
     return chain([
+      addLintFiles(options.projectRoot, Linter.TsLint, { onlyGlobal: true }),
       addUnitTestRunner(options),
       externalSchematic('@schematics/angular', 'library', {
         name: options.name,

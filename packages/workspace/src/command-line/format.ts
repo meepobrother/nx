@@ -1,10 +1,11 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
 import * as resolve from 'resolve';
-import { getProjectRoots, parseFiles } from './shared';
-import { YargsAffectedOptions } from './affected';
+import { getProjectRoots, parseFiles, printArgsWarning } from './shared';
+import { YargsAffectedOptions } from './run-tasks/affected';
 import { getTouchedProjects } from './touched';
 import { fileExists } from '../utils/fileutils';
+import { output } from './output';
 
 export interface YargsFormatOptions extends YargsAffectedOptions {
   libsAndApps?: boolean;
@@ -13,6 +14,8 @@ export interface YargsFormatOptions extends YargsAffectedOptions {
 const PRETTIER_EXTENSIONS = [
   'ts',
   'js',
+  'tsx',
+  'jsx',
   'scss',
   'less',
   'css',
@@ -27,7 +30,18 @@ export function format(command: 'check' | 'write', args: YargsFormatOptions) {
   try {
     patterns = getPatterns(args);
   } catch (e) {
-    printError(command, e);
+    output.error({
+      title: e.message,
+      bodyLines: [
+        `Pass the SHA range: ${output.bold(
+          `npm run format:${command} -- SHA1 SHA2`
+        )}`,
+        '',
+        `Or pass the list of files: ${output.bold(
+          `npm run format:${command} -- --files="libs/mylib/index.ts,libs/mylib2/index.ts"`
+        )}`
+      ]
+    });
     process.exit(1);
   }
 
@@ -45,11 +59,14 @@ export function format(command: 'check' | 'write', args: YargsFormatOptions) {
 }
 
 function getPatterns(args: YargsAffectedOptions) {
+  const allFilesPattern = [`"**/*.{${PRETTIER_EXTENSIONS.join(',')}}"`];
+
   try {
     if (args.all) {
-      return getPatternsWithPathPrefix(['{apps,libs,tools}']);
+      return allFilesPattern;
     }
 
+    printArgsWarning(args);
     const p = parseFiles(args);
     let patterns = p.files
       .filter(f => fileExists(f))
@@ -58,15 +75,17 @@ function getPatterns(args: YargsAffectedOptions) {
       );
 
     const libsAndApp = args.libsAndApps;
-    return libsAndApp ? getPatternsFromApps(patterns) : patterns;
+    return libsAndApp
+      ? getPatternsFromApps(patterns)
+      : patterns.map(f => `"${f}"`);
   } catch (e) {
-    return getPatternsWithPathPrefix(['{apps,libs,tools}']);
+    return allFilesPattern;
   }
 }
 
 function getPatternsFromApps(affectedFiles: string[]): string[] {
   const roots = getProjectRoots(getTouchedProjects(affectedFiles));
-  return getPatternsWithPathPrefix(roots);
+  return roots.map(root => `"${root}/**/*.{${PRETTIER_EXTENSIONS.join(',')}}"`);
 }
 
 function chunkify(target: string[], size: number): string[][] {
@@ -75,22 +94,6 @@ function chunkify(target: string[], size: number): string[][] {
     current[current.length - 1].push(value);
     return current;
   }, []);
-}
-
-function getPatternsWithPathPrefix(prefixes: string[]): string[] {
-  return prefixes.map(
-    prefix => `"${prefix}/**/*.{${PRETTIER_EXTENSIONS.join(',')}}"`
-  );
-}
-
-function printError(command: string, e: any) {
-  console.error(
-    `Pass the SHA range, as follows: npm run format:${command} -- SHA1 SHA2.`
-  );
-  console.error(
-    `Or pass the list of files, as follows: npm run format:${command} -- --files="libs/mylib/index.ts,libs/mylib2/index.ts".`
-  );
-  console.error(e.message);
 }
 
 function write(patterns: string[]) {

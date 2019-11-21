@@ -11,6 +11,10 @@
       "type": "string",
       "description": "The name of the Typescript configuration file."
     },
+    "outputPath": {
+      "type": "string",
+      "description": "The output path of the generated files."
+    },
     "watch": {
       "type": "boolean",
       "description": "Enable re-building when files change.",
@@ -176,6 +180,11 @@
     "polyfills": {
       "type": "string",
       "description": "Polyfills to load before application"
+    },
+    "verbose": {
+      "type": "boolean",
+      "description": "Emits verbose output",
+      "default": false
     },
     "statsJson": {
       "type": "boolean",

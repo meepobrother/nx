@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2015",
     "module": "commonjs",
     "moduleResolution": "node",
     "outDir": "build",
@@ -8,13 +8,17 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "skipLibCheck": true,
-    "lib": ["es2017"],
+    "types": ["node", "jest"],
+    "lib": ["es2018"],
     "declaration": true,
     "baseUrl": ".",
     "paths": {
+      "@nrwl/tao": ["./packages/tao"],
+      "@nrwl/tao/*": ["./packages/tao/*"],
       "@nrwl/workspace": ["./packages/workspace"],
       "@nrwl/workspace/*": ["./packages/workspace/*"],
-      "@nrwl/workspace/testing": ["./packages/workspace/testing"]
+      "@nrwl/workspace/testing": ["./packages/workspace/testing"],
+      "@nrwl/react": ["./packages/react"]
     }
   },
   "exclude": [
@@ -32,10 +36,5 @@
     "packages/react/src/*/files/**/*",
     "packages/web/src/*/files/**/*",
     "scripts"
-  ],
-  "angularCompilerOptions": {
-    "strictMetadataEmit": true,
-    "skipTemplateCodegen": true,
-    "annotationsAs": "decorators"
-  }
+  ]
 }

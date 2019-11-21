@@ -1,3 +1,336 @@
 {
-  "schematics": {}
+  "schematics": {
+    "update-8.2.0": {
+      "version": "8.2.0-beta.1",
+      "description": "Add exclusions to lint config",
+      "factory": "./src/migrations/update-8-2-0/update-8-2-0"
+    },
+    "rename-lint-into-workspace-lint": {
+      "version": "8.3.0-beta.1",
+      "description": "Rename 'nx lint' into 'nx workspace-lint' to avoid confusion",
+      "factory": "./src/migrations/update-8-3-0/rename-lint"
+    },
+    "update-angular-cli-8-1": {
+      "version": "8.3.0-beta.1",
+      "description": "Update Angular CLI to 8.1.1",
+      "factory": "./src/migrations/update-8-3-0/update-ng-cli-8-1"
+    },
+    "update-cypress-to-34": {
+      "version": "8.3.0-beta.1",
+      "description": "Update Cypress to 3.4",
+      "factory": "./src/migrations/update-8-3-0/update-cypress-to-34"
+    },
+    "add-nx-script": {
+      "version": "8.4.0-beta.1",
+      "description": "Add 'nx' script to package.json",
+      "factory": "./src/migrations/update-8-4-0/add-nx-script"
+    },
+    "fix-tsconfig-lib-json": {
+      "version": "8.5.0-beta.1",
+      "description": "Fix the exclude paths in tsconfig.lib.json files for Jest projects",
+      "factory": "./src/migrations/update-8-5-0/fix-tsconfig-lib-json"
+    }
+  },
+  "packageJsonUpdates": {
+    "852": {
+      "version": "8.5.2",
+      "packages": {
+        "@nrwl/angular": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/cypress": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/eslint-plugin-nx": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/express": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/jest": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/linter": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/nest": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/next": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/node": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/react": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/tao": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/web": {
+          "version": "8.5.2",
+          "alwaysAddToPackageJson": false
+        }
+      }
+    },
+    "853": {
+      "version": "8.5.3",
+      "packages": {
+        "@nrwl/angular": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/cypress": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/eslint-plugin-nx": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/express": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/jest": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/linter": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/nest": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/next": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/node": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/react": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/tao": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/web": {
+          "version": "8.5.3",
+          "alwaysAddToPackageJson": false
+        }
+      }
+    },
+    "870": {
+      "version": "8.7.0",
+      "packages": {
+        "@nrwl/angular": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/cypress": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/eslint-plugin-nx": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/express": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/jest": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/linter": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/nest": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/next": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/node": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/react": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/tao": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/web": {
+          "version": "8.7.0",
+          "alwaysAddToPackageJson": false
+        }
+      }
+    },
+    "880": {
+      "version": "8.8.0",
+      "packages": {
+        "@nrwl/angular": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/cypress": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/eslint-plugin-nx": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/express": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/jest": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/linter": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/nest": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/next": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/node": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/react": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/tao": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@nrwl/web": {
+          "version": "8.8.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@ngrx/store": {
+          "version": "8.5.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@ngrx/effects": {
+          "version": "8.5.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@ngrx/entity": {
+          "version": "8.5.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@ngrx/router-store": {
+          "version": "8.5.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@ngrx/schematics": {
+          "version": "8.5.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@ngrx/store-devtools": {
+          "version": "8.5.0",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular-devkit/architect": {
+          "version": "0.803.14",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular-devkit/build-angular": {
+          "version": "0.803.14",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular-devkit/build-ng-packagr": {
+          "version": "0.803.14",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular-devkit/build-webpack": {
+          "version": "0.803.14",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular-devkit/core": {
+          "version": "8.3.14",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular-devkit/schematics": {
+          "version": "8.3.14",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/cli": {
+          "version": "8.3.14",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/common": {
+          "version": "8.2.12",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/compiler": {
+          "version": "8.2.12",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/compiler-cli": {
+          "version": "8.2.12",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/core": {
+          "version": "8.2.12",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/platform-browser": {
+          "version": "8.2.12",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/platform-browser-dynamic": {
+          "version": "8.2.12",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/router": {
+          "version": "8.2.12",
+          "alwaysAddToPackageJson": false
+        },
+        "@angular/upgrade": {
+          "version": "8.2.12",
+          "alwaysAddToPackageJson": false
+        },
+        "@schematics/angular": {
+          "version": "8.3.14",
+          "alwaysAddToPackageJson": false
+        }
+      }
+    }
+  }
 }

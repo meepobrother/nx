@@ -1,43 +1,94 @@
 import * as mergeWebpack from 'webpack-merge';
-
-//TODO @FrozenPandaz we should remove the following imports
-import { getBrowserConfig } from '@angular-devkit/build-angular/src/angular-cli-files/models/webpack-configs/browser';
-import { getCommonConfig } from '@angular-devkit/build-angular/src/angular-cli-files/models/webpack-configs/common';
-import { getStylesConfig } from '@angular-devkit/build-angular/src/angular-cli-files/models/webpack-configs/styles';
+// TODO @FrozenPandaz we should remove the following imports
+import { getBrowserConfig } from './build-angular/angular-cli-files/models/webpack-configs/browser';
+import { getCommonConfig } from './build-angular/angular-cli-files/models/webpack-configs/common';
+import { getStylesConfig } from './build-angular/angular-cli-files/models/webpack-configs/styles';
 import { Configuration } from 'webpack';
-import { Logger } from '@angular-devkit/core/src/logger';
-import { resolve } from 'path';
-import typescript = require('typescript');
-import { WebBuildBuilderOptions } from '../builders/build/build.builder';
+import { LoggerApi } from '@angular-devkit/core/src/logger';
+import { basename, resolve } from 'path';
+import { WebBuildBuilderOptions } from '../builders/build/build.impl';
 import { convertBuildOptions } from './normalize';
 import { readTsConfig } from '@nrwl/workspace';
 import { getBaseWebpackPartial } from './config';
+import { IndexHtmlWebpackPlugin } from './build-angular/angular-cli-files/plugins/index-html-webpack-plugin';
+import { generateEntryPoints } from './build-angular/angular-cli-files/utilities/package-chunk-sort';
+import { ScriptTarget } from 'typescript';
 
-export function getWebConfig(options: WebBuildBuilderOptions, logger: Logger) {
+export function getWebConfig(
+  root,
+  sourceRoot,
+  options: WebBuildBuilderOptions,
+  logger: LoggerApi,
+  esm?: boolean,
+  isScriptOptimizeOn?: boolean
+) {
   const tsConfig = readTsConfig(options.tsConfig);
-  const supportES2015 =
-    tsConfig.options.target !== typescript.ScriptTarget.ES5 &&
-    tsConfig.options.target !== typescript.ScriptTarget.ES3;
+
+  if (isScriptOptimizeOn) {
+    // Angular CLI uses an environment variable (NG_BUILD_DIFFERENTIAL_FULL)
+    // to determine whether to use the scriptTargetOverride
+    // or the tsConfig target
+    // We want to force the target if overriden
+    tsConfig.options.target = ScriptTarget.ES5;
+  }
+
   const wco: any = {
-    root: options.root,
-    projectRoot: resolve(options.root, options.sourceRoot),
+    root,
+    projectRoot: resolve(root, sourceRoot),
     buildOptions: convertBuildOptions(options),
-    supportES2015,
+    esm,
     logger,
     tsConfig,
     tsConfigPath: options.tsConfig
   };
   return mergeWebpack([
-    _getBaseWebpackPartial(options),
-    options.polyfills ? getPolyfillsPartial(options) : {},
-    options.es2015Polyfills ? getEs2015PolyfillsPartial(options) : {},
+    _getBaseWebpackPartial(options, esm, isScriptOptimizeOn),
+    getPolyfillsPartial(options, esm, isScriptOptimizeOn),
     getStylesPartial(wco),
     getCommonPartial(wco),
-    getBrowserConfig(wco)
+    getBrowserPartial(wco, options, isScriptOptimizeOn)
   ]);
 }
-function _getBaseWebpackPartial(options: WebBuildBuilderOptions) {
-  let partial = getBaseWebpackPartial(options);
+
+function getBrowserPartial(
+  wco: any,
+  options: WebBuildBuilderOptions,
+  isScriptOptimizeOn: boolean
+) {
+  const config = getBrowserConfig(wco);
+
+  if (!isScriptOptimizeOn) {
+    const {
+      deployUrl,
+      subresourceIntegrity,
+      scripts = [],
+      styles = [],
+      index,
+      baseHref
+    } = options;
+
+    config.plugins.push(
+      new IndexHtmlWebpackPlugin({
+        input: resolve(wco.root, index),
+        output: basename(index),
+        baseHref,
+        entrypoints: generateEntryPoints({ scripts, styles }),
+        deployUrl: deployUrl,
+        sri: subresourceIntegrity,
+        noModuleEntrypoints: ['polyfills-es5']
+      })
+    );
+  }
+
+  return config;
+}
+
+function _getBaseWebpackPartial(
+  options: WebBuildBuilderOptions,
+  esm: boolean,
+  isScriptOptimizeOn: boolean
+) {
+  let partial = getBaseWebpackPartial(options, esm, isScriptOptimizeOn);
   delete partial.resolve.mainFields;
   return partial;
 }
@@ -75,20 +126,37 @@ function getStylesPartial(wco: any): Configuration {
   return partial;
 }
 
-function getPolyfillsPartial(options: WebBuildBuilderOptions): Configuration {
-  return {
-    entry: {
-      polyfills: [options.polyfills]
-    }
-  };
-}
-
-function getEs2015PolyfillsPartial(
-  options: WebBuildBuilderOptions
+function getPolyfillsPartial(
+  options: WebBuildBuilderOptions,
+  esm: boolean,
+  isScriptOptimizeOn: boolean
 ): Configuration {
-  return {
-    entry: {
-      ['es2015-polyfills']: [options.es2015Polyfills]
-    }
+  const config = {
+    entry: {} as { [key: string]: string[] }
   };
+
+  if (options.polyfills && esm && isScriptOptimizeOn) {
+    // Safari 10.1 supports <script type="module"> but not <script nomodule>.
+    // Need to patch it up so the browser doesn't load both sets.
+    config.entry.polyfills = [
+      require.resolve(
+        '@nrwl/web/src/utils/build-angular/angular-cli-files/models/safari-nomodule.js'
+      ),
+      ...(options.polyfills ? [options.polyfills] : [])
+    ];
+  } else if (options.es2015Polyfills && !esm && isScriptOptimizeOn) {
+    config.entry.polyfills = [
+      options.es2015Polyfills,
+      ...(options.polyfills ? [options.polyfills] : [])
+    ];
+  } else {
+    if (options.polyfills) {
+      config.entry.polyfills = [options.polyfills];
+    }
+    if (options.es2015Polyfills) {
+      config.entry['polyfills-es5'] = [options.es2015Polyfills];
+    }
+  }
+
+  return config;
 }

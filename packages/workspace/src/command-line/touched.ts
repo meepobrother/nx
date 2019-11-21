@@ -1,11 +1,14 @@
+import { join } from 'path';
+
 import {
   ImplicitDependencies,
-  readAngularJson,
+  readWorkspaceJson,
   getProjectNodes,
   readNxJson,
-  getImplicitDependencies
+  getImplicitDependencies,
+  ProjectNode
 } from './shared';
-import { ProjectNode } from './affected-apps';
+import { appRootPath } from '../utils/app-root';
 
 export function touchedProjects(
   implicitDependencies: ImplicitDependencies,
@@ -26,10 +29,10 @@ export function touchedProjects(
 }
 
 export function getTouchedProjects(touchedFiles: string[]): string[] {
-  const angularJson = readAngularJson();
+  const workspaceJson = readWorkspaceJson();
   const nxJson = readNxJson();
-  const projects = getProjectNodes(angularJson, nxJson);
-  const implicitDeps = getImplicitDependencies(projects, angularJson, nxJson);
+  const projects = getProjectNodes(workspaceJson, nxJson);
+  const implicitDeps = getImplicitDependencies(projects, workspaceJson, nxJson);
   return touchedProjects(implicitDeps, projects, touchedFiles).filter(p => !!p);
 }
 
@@ -40,7 +43,7 @@ function implicitlyTouchedProjects(
   return Array.from(
     Object.entries(implicitDependencies.files).reduce(
       (projectSet, [file, projectNames]) => {
-        if (touchedFiles.find(tf => tf.endsWith(file))) {
+        if (touchedFiles.find(tf => tf === file)) {
           projectNames.forEach(projectName => {
             projectSet.add(projectName);
           });
@@ -59,9 +62,7 @@ function directlyTouchedProjects(
   return projects
     .filter(project => {
       return touchedFiles.some(file => {
-        return project.files.some(projectFile => {
-          return file.endsWith(projectFile);
-        });
+        return project.files.some(projectFile => projectFile === file);
       });
     })
     .map(project => project.name);

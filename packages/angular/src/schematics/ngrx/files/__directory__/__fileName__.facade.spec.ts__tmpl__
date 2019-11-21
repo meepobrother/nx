@@ -16,7 +16,7 @@ import {
   <%= className %>State,
   Entity,
   initialState,
-  <%= propertyName %>Reducer
+  reducer
 } from './<%= fileName %>.reducer';
 
 interface TestSchema {
@@ -40,7 +40,7 @@ describe('<%= className %>Facade', () => {
     beforeEach(() => {
       @NgModule({
         imports: [
-          StoreModule.forFeature('<%= propertyName %>', <%= propertyName %>Reducer, { initialState }),
+          StoreModule.forFeature('<%= propertyName %>', reducer, { initialState }),
           EffectsModule.forFeature([<%= className %>Effects])
         ],
         providers: [<%= className %>Facade]

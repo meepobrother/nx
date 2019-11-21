@@ -10,7 +10,8 @@ import { NodePackageInstallTask } from '@angular-devkit/schematics/tasks';
 import {
   createOrUpdate,
   readJsonInTree,
-  updateJsonInTree
+  updateJsonInTree,
+  updateWorkspaceInTree
 } from '@nrwl/workspace';
 import { serializeJson, renameSync } from '@nrwl/workspace';
 import { parseTarget, serializeTarget } from '@nrwl/workspace';
@@ -256,8 +257,8 @@ function createTsconfigLibJson(host: Tree, project: any) {
 }
 
 function createAdditionalFiles(host: Tree) {
-  const angularJson = readJsonInTree(host, 'angular.json');
-  Object.entries<any>(angularJson.projects).forEach(([key, project]) => {
+  const workspaceJson = readJsonInTree(host, 'angular.json');
+  Object.entries<any>(workspaceJson.projects).forEach(([key, project]) => {
     if (project.architect.test) {
       createTsconfigSpecJson(host, project);
       createKarma(host, project);
@@ -282,9 +283,9 @@ function createAdditionalFiles(host: Tree) {
 }
 
 function moveE2eTests(host: Tree, context: SchematicContext) {
-  const angularJson = readJsonInTree(host, 'angular.json');
+  const workspaceJson = readJsonInTree(host, 'angular.json');
 
-  Object.entries<any>(angularJson.projects).forEach(([key, p]) => {
+  Object.entries<any>(workspaceJson.projects).forEach(([key, p]) => {
     if (p.projectType === 'application' && !p.architect.e2e) {
       renameSync(`${p.root}/e2e`, `${p.root}-e2e/src`, err => {
         if (!err) {
@@ -300,9 +301,7 @@ function moveE2eTests(host: Tree, context: SchematicContext) {
         );
         context.logger.warn(err.message);
         context.logger.warn(
-          `If there are e2e tests for the ${key} project, we recommend manually moving them to ${
-            p.root
-          }-e2e/src.`
+          `If there are e2e tests for the ${key} project, we recommend manually moving them to ${p.root}-e2e/src.`
         );
       });
     }
@@ -320,9 +319,9 @@ function deleteUnneededFiles(host: Tree) {
 }
 
 function patchLibIndexFiles(host: Tree, context: SchematicContext) {
-  const angularJson = readJsonInTree(host, 'angular.json');
+  const workspaceJson = readJsonInTree(host, 'angular.json');
 
-  Object.entries<any>(angularJson.projects).forEach(([key, p]) => {
+  Object.entries<any>(workspaceJson.projects).forEach(([key, p]) => {
     if (p.projectType === 'library') {
       try {
         // TODO: incorporate this into fileutils.renameSync
@@ -489,8 +488,8 @@ function createDefaultE2eTsConfig(host: Tree, project: any) {
 }
 
 function updateTsConfigs(host: Tree) {
-  const angularJson = readJsonInTree(host, 'angular.json');
-  Object.entries<any>(angularJson.projects).forEach(([key, project]) => {
+  const workspaceJson = readJsonInTree(host, 'angular.json');
+  Object.entries<any>(workspaceJson.projects).forEach(([key, project]) => {
     if (
       project.architect.build &&
       project.architect.build.options.main.startsWith('apps')
@@ -562,7 +561,7 @@ function updateTsConfigs(host: Tree) {
   return host;
 }
 
-const updateAngularJson = updateJsonInTree('angular.json', json => {
+const updateworkspaceJson = updateWorkspaceInTree(json => {
   json.newProjectRoot = '';
   json.cli = {
     ...json.cli,
@@ -590,15 +589,9 @@ const updateAngularJson = updateJsonInTree('angular.json', json => {
       case 'application':
         project.prefix = prefix;
 
-        project.architect.build.options.tsConfig = `${
-          project.root
-        }/tsconfig.app.json`;
-        project.architect.test.options.karmaConfig = `${
-          project.root
-        }/karma.conf.js`;
-        project.architect.test.options.tsConfig = `${
-          project.root
-        }/tsconfig.spec.json`;
+        project.architect.build.options.tsConfig = `${project.root}/tsconfig.app.json`;
+        project.architect.test.options.karmaConfig = `${project.root}/karma.conf.js`;
+        project.architect.test.options.tsConfig = `${project.root}/tsconfig.spec.json`;
 
         project.architect.test.options.main = `${project.sourceRoot}/test.ts`;
 
@@ -629,12 +622,8 @@ const updateAngularJson = updateJsonInTree('angular.json', json => {
         project.prefix = prefix;
 
         project.projectType = 'library';
-        project.architect.test.options.karmaConfig = `${
-          project.root
-        }/karma.conf.js`;
-        project.architect.test.options.tsConfig = `${
-          project.root
-        }/tsconfig.spec.json`;
+        project.architect.test.options.karmaConfig = `${project.root}/karma.conf.js`;
+        project.architect.test.options.tsConfig = `${project.root}/tsconfig.spec.json`;
         project.architect.test.options.main = `${project.sourceRoot}/test.ts`;
 
         project.architect.lint.options.tsConfig = [
@@ -659,9 +648,7 @@ const updateAngularJson = updateJsonInTree('angular.json', json => {
         project.sourceRoot = `${project.root}/src`;
         project.prefix = prefix;
 
-        project.architect.e2e.options.protractorConfig = `${
-          project.root
-        }/protractor.conf.js`;
+        project.architect.e2e.options.protractorConfig = `${project.root}/protractor.conf.js`;
         project.architect.lint.options.tsConfig = [
           `${project.root}/tsconfig.e2e.json`
         ];
@@ -701,7 +688,7 @@ export default function(): Rule {
   return chain([
     checkCli6Upgraded,
     updatePackageJson,
-    updateAngularJson,
+    updateworkspaceJson,
     moveE2eTests,
     updateTsConfigs,
     createAdditionalFiles,

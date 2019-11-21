@@ -8,8 +8,8 @@ import {
 import { join, normalize, Path } from '@angular-devkit/core';
 import { Schema } from './schema';
 import { updateJsonInTree } from '@nrwl/workspace';
-import { toFileName } from '@nrwl/workspace';
-import ngAdd from '../ng-add/ng-add';
+import { toFileName, formatFiles } from '@nrwl/workspace';
+import init from '../init/init';
 
 interface NormalizedSchema extends Schema {
   appProjectRoot: Path;
@@ -37,17 +37,15 @@ import * as express from 'express';
 const app = express();
 
 app.get('/api', (req, res) => {
-  res.send({message: 'Welcome to ${options.name}!'});
+  res.send({ message: 'Welcome to ${options.name}!' });
 });
 
 const port = process.env.port || 3333;
-app.listen(port, (err) => {
-  if (err) {
-    console.error(err);
-  }
-  console.log('Listening at http://localhost:' + port);
-});    
-    `
+const server = app.listen(port, () => {
+  console.log(\`Listening at http://localhost:\${port}/api\`);
+});
+server.on('error', console.error);
+`
     );
   };
 }
@@ -56,10 +54,11 @@ export default function(schema: Schema): Rule {
   return (host: Tree, context: SchematicContext) => {
     const options = normalizeOptions(schema);
     return chain([
-      ngAdd(),
+      init({ skipFormat: true }),
       externalSchematic('@nrwl/node', 'application', schema),
       addMainFile(options),
-      addTypes(options)
+      addTypes(options),
+      formatFiles(options)
     ])(host, context);
   };
 }

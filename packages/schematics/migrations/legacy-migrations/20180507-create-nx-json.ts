@@ -13,8 +13,8 @@ export default {
       return;
     }
 
-    const angularJson = readJsonFile('.angular-cli.json');
-    const projects = angularJson.apps.reduce((projects, app) => {
+    const workspaceJson = readJsonFile('.angular-cli.json');
+    const projects = workspaceJson.apps.reduce((projects, app) => {
       if (app.name === '$workspaceRoot') {
         return projects;
       }
@@ -33,7 +33,7 @@ export default {
     writeFileSync(
       'nx.json',
       serializeJson({
-        npmScope: angularJson.project.npmScope,
+        npmScope: workspaceJson.project.npmScope,
         projects: projects
       })
     );

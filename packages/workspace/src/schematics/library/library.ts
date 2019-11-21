@@ -11,14 +11,15 @@ import {
   move,
   noop
 } from '@angular-devkit/schematics';
+import { join, normalize } from '@angular-devkit/core';
 import { Schema } from './schema';
 
-import { NxJson } from '@nrwl/workspace';
+import { NxJson, updateWorkspaceInTree } from '@nrwl/workspace';
 import { updateJsonInTree, readJsonInTree } from '@nrwl/workspace';
 import { toFileName, names } from '@nrwl/workspace';
 import { formatFiles } from '@nrwl/workspace';
-import { join, normalize } from 'path';
 import { offsetFromRoot } from '@nrwl/workspace';
+import { generateProjectLint, addLintFiles } from '../../utils/lint';
 
 export interface NormalizedSchema extends Schema {
   name: string;
@@ -29,16 +30,14 @@ export interface NormalizedSchema extends Schema {
 }
 
 function addProject(options: NormalizedSchema): Rule {
-  return updateJsonInTree('angular.json', json => {
+  return updateWorkspaceInTree(json => {
     const architect: { [key: string]: any } = {};
 
-    architect.lint = {
-      builder: '@angular-devkit/build-angular:tslint',
-      options: {
-        tsConfig: [join(normalize(options.projectRoot), 'tsconfig.lib.json')],
-        exclude: ['**/node_modules/**']
-      }
-    };
+    architect.lint = generateProjectLint(
+      normalize(options.projectRoot),
+      join(normalize(options.projectRoot), 'tsconfig.lib.json'),
+      options.linter
+    );
 
     json.projects[options.name] = {
       root: options.projectRoot,
@@ -92,6 +91,7 @@ export default function(schema: Schema): Rule {
   return (host: Tree, context: SchematicContext) => {
     const options = normalizeOptions(schema);
     return chain([
+      addLintFiles(options.projectRoot, options.linter),
       createFiles(options),
       !options.skipTsConfig ? updateTsConfig(options) : noop(),
       addProject(options),

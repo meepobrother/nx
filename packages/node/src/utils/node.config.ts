@@ -2,7 +2,7 @@ import { Configuration, BannerPlugin } from 'webpack';
 import * as mergeWebpack from 'webpack-merge';
 import * as nodeExternals from 'webpack-node-externals';
 
-import { BuildNodeBuilderOptions } from '../builders/build/build.builder';
+import { BuildNodeBuilderOptions } from '../builders/build/build.impl';
 import { getBaseWebpackPartial } from './config';
 
 function getNodePartial(options: BuildNodeBuilderOptions) {
@@ -33,16 +33,6 @@ function getNodePartial(options: BuildNodeBuilderOptions) {
         // bundled
         callback();
       }
-    ];
-  }
-
-  if (options.sourceMap) {
-    webpackConfig.plugins = [
-      new BannerPlugin({
-        banner: 'require("source-map-support").install();',
-        raw: true,
-        entryOnly: false
-      })
     ];
   }
   return webpackConfig;

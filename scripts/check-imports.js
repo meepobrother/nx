@@ -27,11 +27,23 @@ function allFilesInDir(dirName) {
 function check() {
   const exceptions = [
     'packages/create-nx-workspace/bin/create-nx-workspace.ts',
-    'packages/workspace/bin/create-nx-workspace.ts',
+    'packages/web/src/builders/build/build.impl.ts',
+    'packages/web/src/builders/build/build.impl.spec.ts',
     'packages/web/src/utils/web.config.ts',
+    'packages/web/src/utils/web.config.spec.ts',
     'packages/workspace/src/command-line/affected.ts',
+    'packages/workspace/src/command-line/shared.ts',
     'packages/workspace/src/schematics/preset/preset.ts',
-    'packages/workspace/src/schematics/ng-add/ng-add.ts'
+    'packages/workspace/src/schematics/init/init.ts',
+    'packages/workspace/src/utils/update-task.ts',
+    'packages/workspace/src/migrations/update-8-3-0/update-8-3-0.spec.ts',
+    'packages/workspace/src/migrations/update-8-3-0/update-ng-cli-8-1.ts',
+    'packages/web/src/utils/build-angular/angular-cli-files/models/build-options.ts',
+    'packages/web/src/utils/build-angular/angular-cli-files/models/webpack-configs/common.ts',
+    'packages/web/src/utils/build-angular/angular-cli-files/models/webpack-configs/server.ts',
+    'packages/web/src/utils/build-angular/angular-cli-files/utilities/read-tsconfig.ts',
+    'packages/web/src/utils/build-angular/angular-cli-files/utilities/service-worker/index.ts',
+    'packages/web/src/utils/build-angular/utils/version.ts'
   ];
 
   const files = [

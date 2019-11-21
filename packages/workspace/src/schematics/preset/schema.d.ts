@@ -2,5 +2,13 @@ export interface Schema {
   name: string;
   npmScope?: string;
   style?: string;
-  preset: 'empty' | 'angular' | 'react' | 'web-components' | 'full-stack';
+  cli: string;
+  preset:
+    | 'empty'
+    | 'angular'
+    | 'react'
+    | 'next'
+    | 'web-components'
+    | 'angular-nest'
+    | 'react-express';
 }

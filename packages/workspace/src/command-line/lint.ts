@@ -1,25 +1,25 @@
 import {
   getProjectNodes,
   allFilesInDir,
-  readAngularJson,
+  readWorkspaceJson,
   readNxJson
 } from './shared';
 import { WorkspaceIntegrityChecks } from './workspace-integrity-checks';
-import * as appRoot from 'app-root-path';
 import * as path from 'path';
+import { appRootPath } from '../utils/app-root';
+import { output } from './output';
 
-export function lint() {
-  const nodes = getProjectNodes(readAngularJson(), readNxJson());
+export function workspaceLint() {
+  const nodes = getProjectNodes(readWorkspaceJson(), readNxJson());
 
-  const errorGroups = new WorkspaceIntegrityChecks(
+  const cliErrorOutputConfigs = new WorkspaceIntegrityChecks(
     nodes,
     readAllFilesFromAppsAndLibs()
   ).run();
-  if (errorGroups.length > 0) {
-    errorGroups.forEach(g => {
-      console.error(`${g.header}:`);
-      g.errors.forEach(e => console.error(e));
-      console.log('');
+
+  if (cliErrorOutputConfigs.length > 0) {
+    cliErrorOutputConfigs.forEach(errorConfig => {
+      output.error(errorConfig);
     });
     process.exit(1);
   }
@@ -27,7 +27,7 @@ export function lint() {
 
 function readAllFilesFromAppsAndLibs() {
   return [
-    ...allFilesInDir(`${appRoot.path}/apps`).map(f => f.file),
-    ...allFilesInDir(`${appRoot.path}/libs`).map(f => f.file)
+    ...allFilesInDir(`${appRootPath}/apps`).map(f => f.file),
+    ...allFilesInDir(`${appRootPath}/libs`).map(f => f.file)
   ].filter(f => !path.basename(f).startsWith('.'));
 }

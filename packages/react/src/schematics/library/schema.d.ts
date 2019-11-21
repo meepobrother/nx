@@ -1,5 +1,4 @@
-import { UnitTestRunner } from '../../utils/test-runners';
-import { Framework } from '../../utils/framework';
+import { Linter } from '@nrwl/workspace';
 
 export interface Schema {
   name: string;
@@ -8,7 +7,10 @@ export interface Schema {
   skipTsConfig: boolean;
   skipFormat: boolean;
   tags?: string;
-  simpleModuleName: boolean;
-
-  unitTestRunner: UnitTestRunner;
+  pascalCaseFiles?: boolean;
+  routing?: boolean;
+  appProject?: string;
+  unitTestRunner: 'jest' | 'none';
+  linter: Linter;
+  publishable?: boolean;
 }

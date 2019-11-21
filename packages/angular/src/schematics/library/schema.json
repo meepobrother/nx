@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/schema",
-  "id": "SchematicsNxLibrary",
+  "id": "SchematicsAngularLibrary",
   "title": "Create a library",
   "type": "object",
   "properties": {
@@ -15,8 +15,7 @@
     },
     "directory": {
       "type": "string",
-      "description": "A directory where the app is placed",
-      "x-prompt": "In which directory should the library be generated?"
+      "description": "A directory where the app is placed"
     },
     "publishable": {
       "type": "boolean",
@@ -49,10 +48,6 @@
       "default": false,
       "description": "Do not update tsconfig.json for development experience."
     },
-    "parentModule": {
-      "type": "string",
-      "description": "Update the router configuration of the parent module using loadChildren or children, depending on what `lazy` is set to."
-    },
     "style": {
       "description": "The file extension to be used for style files.",
       "type": "string",
@@ -61,7 +56,10 @@
         "message": "Which stylesheet format would you like to use?",
         "type": "list",
         "items": [
-          { "value": "css", "label": "CSS" },
+          {
+            "value": "css",
+            "label": "CSS"
+          },
           {
             "value": "scss",
             "label": "SASS(.scss)  [ http://sass-lang.com   ]"
@@ -87,24 +85,19 @@
       "default": false,
       "description": "Add RouterModule.forChild when set to true, and a simple array of routes when set to false."
     },
+    "parentModule": {
+      "type": "string",
+      "description": "Update the router configuration of the parent module using loadChildren or children, depending on what `lazy` is set to."
+    },
     "tags": {
       "type": "string",
-      "description": "Add tags to the library (used for linting)",
-      "x-prompt": "Which tags would you like to add to the library? (used for linting)"
+      "description": "Add tags to the library (used for linting)"
     },
     "unitTestRunner": {
       "type": "string",
       "enum": ["karma", "jest", "none"],
       "description": "Test runner to use for unit tests",
-      "default": "jest",
-      "x-prompt": {
-        "message": "Which Unit Test Runner would you like to use for the library?",
-        "type": "list",
-        "items": [
-          { "value": "jest", "label": "Jest [https://jestjs.io/]" },
-          { "value": "karma", "label": "Karma" }
-        ]
-      }
+      "default": "jest"
     }
   },
   "required": []

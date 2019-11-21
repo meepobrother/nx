@@ -1,23 +1,16 @@
 import { execSync } from 'child_process';
-import * as path from 'path';
-import {
-  affectedAppNames,
-  AffectedFetcher,
-  affectedLibNames,
-  affectedProjectNames,
-  ProjectNode,
-  ProjectType,
-  affectedProjectNamesWithTarget
-} from './affected-apps';
 import * as fs from 'fs';
-import * as appRoot from 'app-root-path';
+import * as path from 'path';
+import { appRootPath } from '../utils/app-root';
 import { readJsonFile } from '../utils/fileutils';
-import { YargsAffectedOptions } from './affected';
-import { readDependencies, DepGraph, Deps } from './deps-calculator';
+import { YargsAffectedOptions } from './run-tasks/affected';
+import { Deps, readDependencies } from './deps-calculator';
 import { touchedProjects } from './touched';
+import { output } from './output';
 
 const ignore = require('ignore');
 
+export const TEN_MEGABYTES = 1024 * 10000;
 export type ImplicitDependencyEntry = { [key: string]: '*' | string[] };
 export type NormalizedImplicitDependencyEntry = { [key: string]: string[] };
 export type ImplicitDependencies = {
@@ -31,6 +24,12 @@ export interface NxJson {
   projects: {
     [projectName: string]: NxJsonProjectConfig;
   };
+  tasksRunnerOptions?: {
+    [tasksRunnerName: string]: {
+      runner: string;
+      options?: unknown;
+    };
+  };
 }
 
 export interface NxJsonProjectConfig {
@@ -38,12 +37,94 @@ export interface NxJsonProjectConfig {
   tags?: string[];
 }
 
+export enum ProjectType {
+  app = 'app',
+  e2e = 'e2e',
+  lib = 'lib'
+}
+
+export type ProjectNode = {
+  name: string;
+  root: string;
+  type: ProjectType;
+  tags: string[];
+  files: string[];
+  architect: { [k: string]: any };
+  implicitDependencies: string[];
+  fileMTimes: {
+    [filePath: string]: number;
+  };
+};
+
+export interface ProjectMap {
+  [projectName: string]: ProjectNode;
+}
+
+export interface ProjectStates {
+  [projectName: string]: {
+    affected: boolean;
+    touched: boolean;
+  };
+}
+
+export interface DependencyGraph {
+  projects: ProjectMap;
+  dependencies: Deps;
+  roots: string[];
+}
+
+export interface ProjectMetadata {
+  dependencyGraph: DependencyGraph;
+
+  projectStates: ProjectStates;
+}
+
 function readFileIfExisting(path: string) {
   return fs.existsSync(path) ? fs.readFileSync(path, 'UTF-8').toString() : '';
 }
 
-const ig = ignore();
-ig.add(readFileIfExisting(`${appRoot.path}/.gitignore`));
+function getIgnoredGlobs() {
+  const ig = ignore();
+
+  ig.add(readFileIfExisting(`${appRootPath}/.gitignore`));
+  ig.add(readFileIfExisting(`${appRootPath}/.nxignore`));
+
+  return ig;
+}
+
+export function printArgsWarning(options: YargsAffectedOptions) {
+  const { files, uncommitted, untracked, base, head, all } = options;
+
+  if (
+    !files &&
+    !uncommitted &&
+    !untracked &&
+    !base &&
+    !head &&
+    !all &&
+    options._.length < 2
+  ) {
+    output.note({
+      title: `Affected criteria defaulted to --base=${output.bold(
+        'master'
+      )} --head=${output.bold('HEAD')}`
+    });
+  }
+
+  if (all) {
+    output.warn({
+      title: `Running affected:* commands with --all can result in very slow builds.`,
+      bodyLines: [
+        output.bold('--all') +
+          ' is not meant to be used for any sizable project or to be used in CI.',
+        '',
+        output.colors.gray(
+          'Learn more about checking only what is affected: '
+        ) + 'https://nx.dev/guides/monorepo-affected.'
+      ]
+    });
+  }
+}
 
 export function parseFiles(options: YargsAffectedOptions): { files: string[] } {
   const { files, uncommitted, untracked, base, head } = options;
@@ -79,12 +160,20 @@ export function parseFiles(options: YargsAffectedOptions): { files: string[] } {
       files: getFilesFromShash(options._[1], options._[2])
     };
   } else {
-    throw new Error('Invalid options provided');
+    return {
+      files: Array.from(
+        new Set([
+          ...getFilesUsingBaseAndHead('master', 'HEAD'),
+          ...getUncommittedFiles(),
+          ...getUntrackedFiles()
+        ])
+      )
+    };
   }
 }
 
 function getUncommittedFiles(): string[] {
-  return parseGitOutput(`git diff --name-only HEAD .`);
+  return parseGitOutput(`git diff --name-only --relative HEAD .`);
 }
 
 function getUntrackedFiles(): string[] {
@@ -92,18 +181,20 @@ function getUntrackedFiles(): string[] {
 }
 
 function getFilesUsingBaseAndHead(base: string, head: string): string[] {
-  const mergeBase = execSync(`git merge-base ${base} ${head}`)
+  const mergeBase = execSync(`git merge-base ${base} ${head}`, {
+    maxBuffer: TEN_MEGABYTES
+  })
     .toString()
     .trim();
-  return parseGitOutput(`git diff --name-only ${mergeBase} ${head}`);
+  return parseGitOutput(`git diff --name-only --relative ${mergeBase} ${head}`);
 }
 
 function getFilesFromShash(sha1: string, sha2: string): string[] {
-  return parseGitOutput(`git diff --name-only ${sha1} ${sha2}`);
+  return parseGitOutput(`git diff --name-only --relative ${sha1} ${sha2}`);
 }
 
 function parseGitOutput(command: string): string[] {
-  return execSync(command)
+  return execSync(command, { maxBuffer: TEN_MEGABYTES })
     .toString('utf-8')
     .split('\n')
     .map(a => a.trim())
@@ -171,10 +262,10 @@ function detectAndSetInvalidProjectValues(
 
 export function getImplicitDependencies(
   projects: ProjectNode[],
-  angularJson: any,
+  workspaceJson: any,
   nxJson: NxJson
 ): ImplicitDependencies {
-  assertWorkspaceValidity(angularJson, nxJson);
+  assertWorkspaceValidity(workspaceJson, nxJson);
 
   const implicitFileDeps = getFileLevelImplicitDependencies(projects, nxJson);
   const implicitProjectDeps = getProjectLevelImplicitDependencies(projects);
@@ -185,30 +276,30 @@ export function getImplicitDependencies(
   };
 }
 
-export function assertWorkspaceValidity(angularJson, nxJson) {
-  const angularJsonProjects = Object.keys(angularJson.projects);
+export function assertWorkspaceValidity(workspaceJson, nxJson) {
+  const workspaceJsonProjects = Object.keys(workspaceJson.projects);
   const nxJsonProjects = Object.keys(nxJson.projects);
 
-  if (minus(angularJsonProjects, nxJsonProjects).length > 0) {
+  if (minus(workspaceJsonProjects, nxJsonProjects).length > 0) {
     throw new Error(
-      `angular.json and nx.json are out of sync. The following projects are missing in nx.json: ${minus(
-        angularJsonProjects,
+      `${workspaceFileName()} and nx.json are out of sync. The following projects are missing in nx.json: ${minus(
+        workspaceJsonProjects,
         nxJsonProjects
       ).join(', ')}`
     );
   }
 
-  if (minus(nxJsonProjects, angularJsonProjects).length > 0) {
+  if (minus(nxJsonProjects, workspaceJsonProjects).length > 0) {
     throw new Error(
-      `angular.json and nx.json are out of sync. The following projects are missing in angular.json: ${minus(
+      `${workspaceFileName()} and nx.json are out of sync. The following projects are missing in ${workspaceFileName()}: ${minus(
         nxJsonProjects,
-        angularJsonProjects
+        workspaceJsonProjects
       ).join(', ')}`
     );
   }
 
   const projects = {
-    ...angularJson.projects,
+    ...workspaceJson.projects,
     ...nxJson.projects
   };
 
@@ -253,15 +344,15 @@ export function assertWorkspaceValidity(angularJson, nxJson) {
 }
 
 export function getProjectNodes(
-  angularJson: any,
+  workspaceJson: any,
   nxJson: NxJson
 ): ProjectNode[] {
-  assertWorkspaceValidity(angularJson, nxJson);
+  assertWorkspaceValidity(workspaceJson, nxJson);
 
-  const angularJsonProjects = Object.keys(angularJson.projects);
+  const workspaceJsonProjects = Object.keys(workspaceJson.projects);
 
-  return angularJsonProjects.map(key => {
-    const p = angularJson.projects[key];
+  return workspaceJsonProjects.map(key => {
+    const p = workspaceJson.projects[key];
     const tags = nxJson.projects[key].tags;
 
     const projectType =
@@ -276,7 +367,7 @@ export function getProjectNodes(
       implicitDependencies = [key.replace(/-e2e$/, '')];
     }
 
-    const filesWithMTimes = allFilesInDir(`${appRoot.path}/${p.root}`);
+    const filesWithMTimes = allFilesInDir(`${appRootPath}/${p.root}`);
     const fileMTimes = {};
     filesWithMTimes.forEach(f => {
       fileMTimes[f.file] = f.mtime;
@@ -305,81 +396,175 @@ function minus(a: string[], b: string[]): string[] {
   return res;
 }
 
-export function readAngularJson(): any {
-  return readJsonFile(`${appRoot.path}/angular.json`);
+export function cliCommand() {
+  return workspaceFileName() === 'angular.json' ? 'ng' : 'nx';
+}
+
+export function readWorkspaceJson(): any {
+  return readJsonFile(`${appRootPath}/${workspaceFileName()}`);
+}
+
+export function workspaceFileName() {
+  const packageJson = readPackageJson();
+  if (
+    packageJson.devDependencies['@angular/cli'] ||
+    packageJson.dependencies['@angular/cli']
+  ) {
+    return 'angular.json';
+  } else {
+    return 'workspace.json';
+  }
+}
+
+export function readPackageJson(): any {
+  return readJsonFile(`${appRootPath}/package.json`);
 }
 
 export function readNxJson(): NxJson {
-  const config = readJsonFile<NxJson>(`${appRoot.path}/nx.json`);
+  const config = readJsonFile<NxJson>(`${appRootPath}/nx.json`);
   if (!config.npmScope) {
     throw new Error(`nx.json must define the npmScope property.`);
   }
   return config;
 }
 
-export const getAffected = (affectedNamesFetcher: AffectedFetcher) => (
-  touchedFiles: string[]
-): string[] => {
-  const angularJson = readAngularJson();
+export function getProjectMetadata(
+  touchedFiles: string[],
+  withDeps: boolean
+): ProjectMetadata {
+  const workspaceJson = readWorkspaceJson();
   const nxJson = readNxJson();
-  const projects = getProjectNodes(angularJson, nxJson);
-  const implicitDeps = getImplicitDependencies(projects, angularJson, nxJson);
-  const dependencies = readDependencies(nxJson.npmScope, projects);
-  const sortedProjects = topologicallySortProjects(projects, dependencies);
-  const tp = touchedProjects(implicitDeps, projects, touchedFiles);
-  return affectedNamesFetcher(sortedProjects, dependencies, tp);
-};
-
-export function getAffectedProjectsWithTarget(target: string) {
-  return getAffected(affectedProjectNamesWithTarget(target));
-}
-export const getAffectedApps = getAffected(affectedAppNames);
-export const getAffectedProjects = getAffected(affectedProjectNames);
-export const getAffectedLibs = getAffected(affectedLibNames);
-
-export function getAllAppNames() {
-  return getProjectNames(p => p.type === ProjectType.app);
+  const projectNodes = getProjectNodes(workspaceJson, nxJson);
+  const implicitDeps = getImplicitDependencies(
+    projectNodes,
+    workspaceJson,
+    nxJson
+  );
+  const dependencies = readDependencies(nxJson.npmScope, projectNodes);
+  const tp = touchedProjects(implicitDeps, projectNodes, touchedFiles);
+  return createProjectMetadata(projectNodes, dependencies, tp, withDeps);
 }
 
-export function getAllLibNames() {
-  return getProjectNames(p => p.type === ProjectType.lib);
+export function createProjectMetadata(
+  projectNodes: ProjectNode[],
+  dependencies: Deps,
+  touchedProjects: string[],
+  withDeps: boolean
+): ProjectMetadata {
+  const projectStates: ProjectStates = {};
+  const projects: ProjectMap = {};
+
+  projectNodes.forEach(project => {
+    projectStates[project.name] = {
+      touched: false,
+      affected: false
+    };
+    projects[project.name] = project;
+  });
+  const reverseDeps = reverseDependencies(dependencies);
+  const roots = projectNodes
+    .filter(project => !reverseDeps[project.name])
+    .map(project => project.name);
+
+  touchedProjects.forEach(projectName => {
+    projectStates[projectName].touched = true;
+    setAffected(
+      projectName,
+      simplifyDeps(dependencies),
+      reverseDeps,
+      projectStates,
+      withDeps
+    );
+  });
+
+  return {
+    dependencyGraph: {
+      projects,
+      dependencies,
+      roots
+    },
+    projectStates
+  };
 }
 
-export function getAllProjectNamesWithTarget(target: string) {
-  return getProjectNames(p => p.architect[target]);
+function simplifyDeps(dependencies: Deps): { [projectName: string]: string[] } {
+  const res = {};
+  Object.keys(dependencies).forEach(d => {
+    res[d] = dependencies[d].map(dd => dd.projectName);
+  });
+  return res;
 }
 
-export function getAllProjectsWithTarget(target: string) {
-  const angularJson = readAngularJson();
-  const nxJson = readNxJson();
-  const projects = getProjectNodes(angularJson, nxJson);
-  const dependencies = readDependencies(nxJson.npmScope, projects);
-  const sortedProjects = topologicallySortProjects(projects, dependencies);
-
-  return sortedProjects.filter(p => p.architect[target]).map(p => p.name);
+function reverseDependencies(
+  dependencies: Deps
+): { [projectName: string]: string[] } {
+  const reverseDepSets: { [projectName: string]: Set<string> } = {};
+  Object.entries(dependencies).forEach(([depName, deps]) => {
+    deps.forEach(dep => {
+      reverseDepSets[dep.projectName] =
+        reverseDepSets[dep.projectName] || new Set<string>();
+      reverseDepSets[dep.projectName].add(depName);
+    });
+  });
+  return Object.entries(reverseDepSets).reduce(
+    (reverseDeps, [name, depSet]) => {
+      reverseDeps[name] = Array.from(depSet);
+      return reverseDeps;
+    },
+    {} as {
+      [projectName: string]: string[];
+    }
+  );
 }
 
-export function getProjectNames(
-  predicate?: (projectNode: ProjectNode) => boolean
-): string[] {
-  let projects = getProjectNodes(readAngularJson(), readNxJson());
-  if (predicate) {
-    projects = projects.filter(predicate);
+function setAffected(
+  projectName: string,
+  deps: { [projectName: string]: string[] },
+  reverseDeps: { [projectName: string]: string[] },
+  projectStates: ProjectStates,
+  withDeps: boolean
+) {
+  projectStates[projectName].affected = true;
+  const rdep = reverseDeps[projectName] || [];
+  rdep.forEach(dep => {
+    // If a dependency is already marked as affected, it means it has been visited
+    if (projectStates[dep].affected) {
+      return;
+    }
+    setAffected(dep, deps, reverseDeps, projectStates, withDeps);
+  });
+
+  if (withDeps) {
+    setDeps(projectName, deps, reverseDeps, projectStates);
   }
+}
 
-  return projects.map(p => p.name);
+function setDeps(
+  projectName: string,
+  deps: { [projectName: string]: string[] },
+  reverseDeps: { [projectName: string]: string[] },
+  projectStates: ProjectStates
+) {
+  projectStates[projectName].affected = true;
+  deps[projectName].forEach(dep => {
+    // If a dependency is already marked as affected, it means it has been visited
+    if (projectStates[dep].affected) {
+      return;
+    }
+    setDeps(dep, deps, reverseDeps, projectStates);
+  });
 }
 
 export function getProjectRoots(projectNames: string[]): string[] {
-  const { projects } = readAngularJson();
+  const { projects } = readWorkspaceJson();
   return projectNames.map(name => projects[name].root);
 }
 
 export function allFilesInDir(
   dirName: string
 ): { file: string; mtime: number }[] {
-  // Ignore .gitignored files
-  if (ig.ignores(path.relative(appRoot.path, dirName))) {
+  const ignoredGlobs = getIgnoredGlobs();
+  if (ignoredGlobs.ignores(path.relative(appRootPath, dirName))) {
     return [];
   }
 
@@ -387,7 +572,7 @@ export function allFilesInDir(
   try {
     fs.readdirSync(dirName).forEach(c => {
       const child = path.join(dirName, c);
-      if (ig.ignores(path.relative(appRoot.path, child))) {
+      if (ignoredGlobs.ignores(path.relative(appRootPath, child))) {
         return;
       }
       try {
@@ -395,7 +580,7 @@ export function allFilesInDir(
         if (!s.isDirectory()) {
           // add starting with "apps/myapp/..." or "libs/mylib/..."
           res.push({
-            file: normalizePath(path.relative(appRoot.path, child)),
+            file: normalizePath(path.relative(appRootPath, child)),
             mtime: s.mtimeMs
           });
         } else if (s.isDirectory()) {
@@ -411,10 +596,10 @@ export function lastModifiedAmongProjectFiles(projects: ProjectNode[]) {
   return Math.max(
     ...[
       ...projects.map(project => getProjectMTime(project)),
-      mtime(`${appRoot.path}/angular.json`),
-      mtime(`${appRoot.path}/nx.json`),
-      mtime(`${appRoot.path}/tslint.json`),
-      mtime(`${appRoot.path}/package.json`)
+      mtime(`${appRootPath}/${workspaceFileName()}`),
+      mtime(`${appRootPath}/nx.json`),
+      mtime(`${appRootPath}/tslint.json`),
+      mtime(`${appRootPath}/package.json`)
     ]
   );
 }
@@ -444,30 +629,4 @@ export function normalizedProjectRoot(p: ProjectNode): string {
     .filter(v => !!v)
     .slice(1)
     .join('/');
-}
-
-function topologicallySortProjects(
-  projects: ProjectNode[],
-  deps: Deps
-): ProjectNode[] {
-  const temporary = {};
-  const marked = {};
-  const res: ProjectNode[] = [];
-
-  while (Object.keys(marked).length !== projects.length) {
-    visit(projects.find(p => !marked[p.name]));
-  }
-
-  function visit(n: ProjectNode) {
-    if (marked[n.name]) return;
-    if (temporary[n.name]) return;
-    temporary[n.name] = true;
-    deps[n.name].forEach(e => {
-      visit(projects.find(pp => pp.name === e.projectName));
-    });
-    marked[n.name] = true;
-    res.push(n);
-  }
-
-  return res;
 }

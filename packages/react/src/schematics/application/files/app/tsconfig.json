@@ -3,7 +3,8 @@
   "compilerOptions": {
     "jsx": "react",
     "allowJs": true,
-    "target": "es2015",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "types": []
   },
   "include": ["**/*.ts", "**/*.tsx"]

@@ -7,19 +7,29 @@ import * as path from 'path';
 import * as url from 'url';
 import { getWebConfig } from './web.config';
 import { Configuration } from 'webpack';
-import { Logger } from '@angular-devkit/core/src/logger';
-import { WebBuildBuilderOptions } from '../builders/build/build.builder';
-import { WebDevServerOptions } from '../builders/dev-server/dev-server.builder';
+import { LoggerApi } from '@angular-devkit/core/src/logger';
+import { WebBuildBuilderOptions } from '../builders/build/build.impl';
+import { WebDevServerOptions } from '../builders/dev-server/dev-server.impl';
 import { buildServePath } from './serve-path';
 import { OptimizationOptions } from './types';
 
 export function getDevServerConfig(
+  root: string,
+  sourceRoot: string,
   buildOptions: WebBuildBuilderOptions,
   serveOptions: WebDevServerOptions,
-  logger: Logger
+  logger: LoggerApi
 ) {
-  const webpackConfig: Configuration = getWebConfig(buildOptions, logger);
+  const webpackConfig: Configuration = getWebConfig(
+    root,
+    sourceRoot,
+    buildOptions,
+    logger,
+    true, // Don't need to support legacy browsers for dev.
+    false
+  );
   (webpackConfig as any).devServer = getDevServerPartial(
+    root,
     serveOptions,
     buildOptions
   );
@@ -50,6 +60,7 @@ function getLiveReloadEntry(serveOptions: WebDevServerOptions) {
 }
 
 function getDevServerPartial(
+  root: string,
   options: WebDevServerOptions,
   buildOptions: WebBuildBuilderOptions
 ): WebpackDevServerConfiguration {
@@ -81,15 +92,20 @@ function getDevServerPartial(
     },
     public: options.publicHost,
     publicPath: servePath,
-    contentBase: false
+    contentBase: false,
+    allowedHosts: []
   };
 
   if (options.ssl && options.sslKey && options.sslCert) {
-    config.https = getSslConfig(buildOptions.root, options);
+    config.https = getSslConfig(root, options);
   }
 
   if (options.proxyConfig) {
-    config.proxy = getProxyConfig(buildOptions.root, options);
+    config.proxy = getProxyConfig(root, options);
+  }
+
+  if (options.allowedHosts) {
+    config.allowedHosts = options.allowedHosts.split(',');
   }
 
   return config;

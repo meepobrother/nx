@@ -11,10 +11,15 @@ import {
   noop,
   filter
 } from '@angular-devkit/schematics';
-import { readJsonInTree, updateJsonInTree } from '@nrwl/workspace';
+import {
+  readJsonInTree,
+  updateJsonInTree,
+  updateWorkspaceInTree
+} from '@nrwl/workspace';
 import { getProjectConfig, addDepsToPackageJson } from '@nrwl/workspace';
 import { offsetFromRoot } from '@nrwl/workspace';
 import { join, normalize } from '@angular-devkit/core';
+import init from '../init/init';
 
 export interface JestProjectSchema {
   project: string;
@@ -69,8 +74,8 @@ function updateTsConfig(options: JestProjectSchema): Rule {
   };
 }
 
-function updateAngularJson(options: JestProjectSchema): Rule {
-  return updateJsonInTree('angular.json', json => {
+function updateWorkspaceJson(options: JestProjectSchema): Rule {
+  return updateWorkspaceInTree(json => {
     const projectConfig = json.projects[options.project];
     projectConfig.architect.test = {
       builder: '@nrwl/jest:jest',
@@ -103,11 +108,6 @@ function check(options: JestProjectSchema): Rule {
         `${options.project} already has a test architect option.`
       );
     }
-    const packageJson = readJsonInTree(host, 'package.json');
-    if (!packageJson.devDependencies.jest) {
-      context.logger.warn(`"jest" is not installed as a dependency.`);
-      context.logger.info(`Add "jest" via "ng add @nrwl/jest"`);
-    }
     return host;
   };
 }
@@ -125,9 +125,10 @@ function normalizeOptions(options: JestProjectSchema): JestProjectSchema {
 export default function(options: JestProjectSchema): Rule {
   options = normalizeOptions(options);
   return chain([
+    init(),
     check(options),
     generateFiles(options),
     updateTsConfig(options),
-    updateAngularJson(options)
+    updateWorkspaceJson(options)
   ]);
 }

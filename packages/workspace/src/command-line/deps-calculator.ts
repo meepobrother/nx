@@ -1,14 +1,13 @@
 import * as path from 'path';
 import * as ts from 'typescript';
-import * as appRoot from 'app-root-path';
 
 import {
   normalizedProjectRoot,
   getProjectMTime,
   mtime,
-  lastModifiedAmongProjectFiles
+  lastModifiedAmongProjectFiles,
+  ProjectNode
 } from './shared';
-import { ProjectNode } from './affected-apps';
 import { mkdirSync, readFileSync } from 'fs';
 import {
   fileExists,
@@ -17,6 +16,7 @@ import {
   writeToFile
 } from '../utils/fileutils';
 import { stripSourceCode } from '../utils/strip-source-code';
+import { appRootPath } from '../utils/app-root';
 
 export type DepGraph = {
   projects: ProjectNode[];
@@ -44,15 +44,15 @@ export function readDependencies(
   npmScope: string,
   projectNodes: ProjectNode[]
 ): Deps {
-  const nxDepsPath = `${appRoot.path}/dist/nxdeps.json`;
+  const nxDepsPath = `${appRootPath}/dist/nxdeps.json`;
   const m = lastModifiedAmongProjectFiles(projectNodes);
-  if (!directoryExists(`${appRoot.path}/dist`)) {
-    mkdirSync(`${appRoot.path}/dist`);
+  if (!directoryExists(`${appRootPath}/dist`)) {
+    mkdirSync(`${appRootPath}/dist`);
   }
   const existingDeps = fileExists(nxDepsPath) ? readJsonFile(nxDepsPath) : null;
   if (!existingDeps || m > mtime(nxDepsPath)) {
     return dependencies(npmScope, projectNodes, existingDeps, (f: string) =>
-      readFileSync(`${appRoot.path}/${f}`, 'UTF-8')
+      readFileSync(`${appRootPath}/${f}`, 'UTF-8')
     );
   } else {
     return existingDeps.dependencies;
@@ -71,7 +71,7 @@ export function dependencies(
   existingDependencies: NxDepsJson | null,
   fileRead: (s: string) => string
 ): Deps {
-  const nxDepsPath = `${appRoot.path}/dist/nxdeps.json`;
+  const nxDepsPath = `${appRootPath}/dist/nxdeps.json`;
   const nxDepsExists = fileExists(nxDepsPath);
   const nxDepsMTime = nxDepsExists ? mtime(nxDepsPath) : -Infinity;
   const calculator = new DepsCalculator(
@@ -273,6 +273,17 @@ export class DepsCalculator {
       const imp = this.getStringLiteralValue(node.moduleSpecifier);
       this.addDepIfNeeded(imp, filePath, DependencyType.es6Import);
       return; // stop traversing downwards
+    }
+
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1 &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      const imp = this.getStringLiteralValue(node.arguments[0]);
+      this.addDepIfNeeded(imp, filePath, DependencyType.loadChildren);
+      return;
     }
 
     if (node.kind === ts.SyntaxKind.PropertyAssignment) {

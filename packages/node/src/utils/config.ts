@@ -1,8 +1,7 @@
 import * as webpack from 'webpack';
-import { Configuration, ProgressPlugin } from 'webpack';
+import { Configuration, ProgressPlugin, Stats } from 'webpack';
 
 import * as ts from 'typescript';
-import { resolve } from 'path';
 
 import { LicenseWebpackPlugin } from 'license-webpack-plugin';
 import CircularDependencyPlugin = require('circular-dependency-plugin');
@@ -71,7 +70,8 @@ export function getBaseWebpackPartial(
     watch: options.watch,
     watchOptions: {
       poll: options.poll
-    }
+    },
+    stats: getStatsConfig(options)
   };
 
   const extraPlugins: webpack.Plugin[] = [];
@@ -81,14 +81,13 @@ export function getBaseWebpackPartial(
   }
 
   if (options.extractLicenses) {
-    extraPlugins.push(
-      new LicenseWebpackPlugin({
-        pattern: /.*/,
-        suppressErrors: true,
-        perChunkOutput: false,
-        outputFilename: `3rdpartylicenses.txt`
-      })
-    );
+    extraPlugins.push((new LicenseWebpackPlugin({
+      stats: {
+        errors: false
+      },
+      perChunkOutput: false,
+      outputFilename: `3rdpartylicenses.txt`
+    }) as unknown) as webpack.Plugin);
   }
 
   // process asset entries
@@ -138,4 +137,27 @@ function getAliases(options: BuildBuilderOptions): { [key: string]: string } {
     }),
     {}
   );
+}
+
+function getStatsConfig(options: BuildBuilderOptions): Stats.ToStringOptions {
+  return {
+    hash: true,
+    timings: false,
+    cached: false,
+    cachedAssets: false,
+    modules: false,
+    warnings: true,
+    errors: true,
+    colors: !options.verbose && !options.statsJson,
+    chunks: !options.verbose,
+    assets: !!options.verbose,
+    chunkOrigins: !!options.verbose,
+    chunkModules: !!options.verbose,
+    children: !!options.verbose,
+    reasons: !!options.verbose,
+    version: !!options.verbose,
+    errorDetails: !!options.verbose,
+    moduleTrace: !!options.verbose,
+    usedExports: !!options.verbose
+  };
 }

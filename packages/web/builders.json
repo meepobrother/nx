@@ -2,12 +2,17 @@
   "$schema": "@angular-devkit/architect/src/builders-schema.json",
   "builders": {
     "build": {
-      "class": "./src/builders/build/build.builder",
+      "implementation": "./src/builders/build/build.impl",
       "schema": "./src/builders/build/schema.json",
       "description": "Build a application"
     },
+    "bundle": {
+      "implementation": "./src/builders/bundle/bundle.impl",
+      "schema": "./src/builders/bundle/schema.json",
+      "description": "Bundle a library"
+    },
     "dev-server": {
-      "class": "./src/builders/dev-server/dev-server.builder",
+      "implementation": "./src/builders/dev-server/dev-server.impl",
       "schema": "./src/builders/dev-server/schema.json",
       "description": "Serve a web application"
     }

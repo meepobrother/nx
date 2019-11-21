@@ -1,4 +1,4 @@
-import { Tree, VirtualTree } from '@angular-devkit/schematics';
+import { Tree } from '@angular-devkit/schematics';
 import { createEmptyWorkspace } from '@nrwl/workspace/testing';
 import { readJsonInTree } from '@nrwl/workspace';
 import { NxJson } from '@nrwl/workspace';
@@ -8,21 +8,20 @@ describe('lib', () => {
   let appTree: Tree;
 
   beforeEach(() => {
-    appTree = new VirtualTree();
+    appTree = Tree.empty();
     appTree = createEmptyWorkspace(appTree);
   });
 
   describe('not nested', () => {
-    it('should update angular.json', async () => {
+    it('should update workspace.json', async () => {
       const tree = await runSchematic('lib', { name: 'myLib' }, appTree);
-      const angularJson = readJsonInTree(tree, '/angular.json');
-
-      expect(angularJson.projects['my-lib'].root).toEqual('libs/my-lib');
-      expect(angularJson.projects['my-lib'].architect.build).toBeUndefined();
-      expect(angularJson.projects['my-lib'].architect.lint).toEqual({
+      const workspaceJson = readJsonInTree(tree, '/workspace.json');
+      expect(workspaceJson.projects['my-lib'].root).toEqual('libs/my-lib');
+      expect(workspaceJson.projects['my-lib'].architect.build).toBeUndefined();
+      expect(workspaceJson.projects['my-lib'].architect.lint).toEqual({
         builder: '@angular-devkit/build-angular:tslint',
         options: {
-          exclude: ['**/node_modules/**'],
+          exclude: ['**/node_modules/**', '!libs/my-lib/**'],
           tsConfig: [
             'libs/my-lib/tsconfig.lib.json',
             'libs/my-lib/tsconfig.spec.json'
@@ -64,6 +63,8 @@ describe('lib', () => {
         compilerOptions: {
           allowJs: true,
           jsx: 'react',
+          allowSyntheticDefaultImports: true,
+          esModuleInterop: true,
           types: ['node', 'jest']
         },
         include: ['**/*.ts', '**/*.tsx']
@@ -95,17 +96,6 @@ describe('lib', () => {
       expect(tree.exists('libs/my-lib/src/lib/my-lib.tsx')).toBeTruthy();
       expect(tree.exists('libs/my-lib/src/lib/my-lib.css')).toBeTruthy();
       expect(tree.exists('libs/my-lib/src/lib/my-lib.spec.tsx')).toBeTruthy();
-
-      expect(tree.readContent('libs/my-lib/src/lib/my-lib.tsx')).toContain(
-        '<div>my-lib works!</div>'
-      );
-      expect(tree.readContent('libs/my-lib/src/lib/my-lib.tsx')).toContain(
-        'export class MyLib extends Component {'
-      );
-
-      expect(tree.readContent('libs/my-lib/src/lib/my-lib.spec.tsx')).toContain(
-        `describe('MyLib', () => {`
-      );
     });
   });
 
@@ -135,8 +125,7 @@ describe('lib', () => {
         {
           name: 'myLib2',
           directory: 'myDir',
-          tags: 'one,two',
-          simpleModuleName: true
+          tags: 'one,two'
         },
         tree
       );
@@ -171,34 +160,23 @@ describe('lib', () => {
       expect(
         tree.exists('libs/my-dir/my-lib/src/lib/my-dir-my-lib.spec.tsx')
       ).toBeTruthy();
-
-      expect(
-        tree.readContent('libs/my-dir/my-lib/src/lib/my-dir-my-lib.tsx')
-      ).toContain('<div>my-dir-my-lib works!</div>');
-      expect(
-        tree.readContent('libs/my-dir/my-lib/src/lib/my-dir-my-lib.tsx')
-      ).toContain('export class MyDirMyLib extends Component {');
-
-      expect(
-        tree.readContent('libs/my-dir/my-lib/src/lib/my-dir-my-lib.spec.tsx')
-      ).toContain(`describe('MyDirMyLib', () => {`);
     });
 
-    it('should update angular.json', async () => {
+    it('should update workspace.json', async () => {
       const tree = await runSchematic(
         'lib',
         { name: 'myLib', directory: 'myDir' },
         appTree
       );
-      const angularJson = readJsonInTree(tree, '/angular.json');
+      const workspaceJson = readJsonInTree(tree, '/workspace.json');
 
-      expect(angularJson.projects['my-dir-my-lib'].root).toEqual(
+      expect(workspaceJson.projects['my-dir-my-lib'].root).toEqual(
         'libs/my-dir/my-lib'
       );
-      expect(angularJson.projects['my-dir-my-lib'].architect.lint).toEqual({
+      expect(workspaceJson.projects['my-dir-my-lib'].architect.lint).toEqual({
         builder: '@angular-devkit/build-angular:tslint',
         options: {
-          exclude: ['**/node_modules/**'],
+          exclude: ['**/node_modules/**', '!libs/my-dir/my-lib/**'],
           tsConfig: [
             'libs/my-dir/my-lib/tsconfig.lib.json',
             'libs/my-dir/my-lib/tsconfig.spec.json'
@@ -238,6 +216,8 @@ describe('lib', () => {
         compilerOptions: {
           allowJs: true,
           jsx: 'react',
+          allowSyntheticDefaultImports: true,
+          esModuleInterop: true,
           types: ['node', 'jest']
         },
         include: ['**/*.ts', '**/*.tsx']
@@ -253,7 +233,7 @@ describe('lib', () => {
         appTree
       );
 
-      expect(result.exists('libs/my-lib/src/lib/my-lib.scss'));
+      expect(result.exists('libs/my-lib/src/lib/my-lib.scss')).toBeTruthy();
     });
   });
 
@@ -266,11 +246,103 @@ describe('lib', () => {
       );
       expect(resultTree.exists('libs/my-lib/tsconfig.spec.json')).toBeFalsy();
       expect(resultTree.exists('libs/my-lib/jest.config.js')).toBeFalsy();
-      const angularJson = readJsonInTree(resultTree, 'angular.json');
-      expect(angularJson.projects['my-lib'].architect.test).toBeUndefined();
+      const workspaceJson = readJsonInTree(resultTree, 'workspace.json');
+      expect(workspaceJson.projects['my-lib'].architect.test).toBeUndefined();
       expect(
-        angularJson.projects['my-lib'].architect.lint.options.tsConfig
+        workspaceJson.projects['my-lib'].architect.lint.options.tsConfig
       ).toEqual(['libs/my-lib/tsconfig.lib.json']);
+    });
+  });
+
+  describe('--appProject', () => {
+    it('should add new route to existing routing code', async () => {
+      appTree = await runSchematic(
+        'app',
+        { name: 'myApp', routing: true },
+        appTree
+      );
+
+      const tree = await runSchematic(
+        'lib',
+        {
+          name: 'myLib',
+          appProject: 'my-app'
+        },
+        appTree
+      );
+
+      const appSource = tree.read('apps/my-app/src/app/app.tsx').toString();
+      const mainSource = tree.read('apps/my-app/src/main.tsx').toString();
+
+      expect(mainSource).toContain('react-router-dom');
+      expect(mainSource).toContain('<BrowserRouter>');
+      expect(appSource).toContain('@proj/my-lib');
+      expect(appSource).toContain('react-router-dom');
+      expect(appSource).toMatch(/<Route\s*path="\/my-lib"/);
+    });
+
+    it('should initialize routes if none were set up then add new route', async () => {
+      appTree = await runSchematic('app', { name: 'myApp' }, appTree);
+
+      const tree = await runSchematic(
+        'lib',
+        {
+          name: 'myLib',
+          appProject: 'my-app'
+        },
+        appTree
+      );
+
+      const appSource = tree.read('apps/my-app/src/app/app.tsx').toString();
+      const mainSource = tree.read('apps/my-app/src/main.tsx').toString();
+
+      expect(mainSource).toContain('react-router-dom');
+      expect(mainSource).toContain('<BrowserRouter>');
+      expect(appSource).toContain('@proj/my-lib');
+      expect(appSource).toContain('react-router-dom');
+      expect(appSource).toMatch(/<Route\s*path="\/my-lib"/);
+    });
+  });
+
+  describe('--publishable', () => {
+    it('should add build architect', async () => {
+      const tree = await runSchematic(
+        'lib',
+        {
+          name: 'myLib',
+          publishable: true
+        },
+        appTree
+      );
+
+      const workspaceJson = readJsonInTree(tree, '/workspace.json');
+
+      expect(workspaceJson.projects['my-lib'].architect.build).toMatchObject({
+        builder: '@nrwl/web:bundle',
+        options: {
+          entryFile: 'libs/my-lib/src/index.ts',
+          outputPath: 'dist/libs/my-lib',
+          project: 'libs/my-lib/package.json',
+          tsConfig: 'libs/my-lib/tsconfig.lib.json',
+          babelConfig: '@nrwl/react/plugins/bundle-babel',
+          rollupConfig: '@nrwl/react/plugins/bundle-rollup'
+        }
+      });
+    });
+
+    it('should add package.json', async () => {
+      const tree = await runSchematic(
+        'lib',
+        {
+          name: 'myLib',
+          publishable: true
+        },
+        appTree
+      );
+
+      const packageJson = readJsonInTree(tree, '/libs/my-lib/package.json');
+
+      expect(packageJson.name).toEqual('my-lib');
     });
   });
 });

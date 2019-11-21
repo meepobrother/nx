@@ -7,12 +7,12 @@
     "url": "git+https://github.com/nrwl/nx.git"
   },
   "keywords": [
-    "node",
-    "Workspace",
     "Monorepo",
-    "Schematics",
-    "Nx",
-    "Angular CLI"
+    "Node",
+    "Nest",
+    "Jest",
+    "Cypress",
+    "CLI"
   ],
   "main": "index.js",
   "types": "index.d.ts",
@@ -33,14 +33,20 @@
   },
   "dependencies": {
     "@nrwl/jest": "*",
-    "@angular-devkit/build-webpack": "~0.13.1",
-    "copy-webpack-plugin": "4.6.0",
-    "fork-ts-checker-webpack-plugin": "0.4.9",
-    "identity-obj-proxy": "3.0.0",
+    "@nrwl/linter": "*",
+    "@angular-devkit/architect": "0.803.14",
+    "@angular-devkit/core": "8.3.14",
+    "@angular-devkit/schematics": "8.3.14",
+    "@angular-devkit/build-webpack": "0.803.14",
+    "circular-dependency-plugin": "^5.0.2",
+    "copy-webpack-plugin": "5.0.3",
+    "fork-ts-checker-webpack-plugin": "0.4.15",
     "license-webpack-plugin": "^1.4.0",
-    "source-map-support": "0.5.11",
-    "ts-loader": "5.3.1",
-    "webpack": "4.29.0",
+    "source-map-support": "0.5.12",
+    "tree-kill": "1.2.1",
+    "ts-loader": "5.4.5",
+    "tsconfig-paths-webpack-plugin": "3.2.0",
+    "webpack": "4.39.2",
     "webpack-dev-server": "3.1.14",
     "webpack-node-externals": "1.7.2"
   }

@@ -6,13 +6,15 @@
     "type": "git",
     "url": "git+https://github.com/nrwl/nx.git"
   },
+  "scripts": {
+    "postinstall": "node ./scripts/nx-cli-warning.js"
+  },
   "keywords": [
-    "Angular",
-    "Workspace",
     "Monorepo",
-    "Schematics",
-    "Nx",
-    "Angular CLI"
+    "Angular",
+    "Jest",
+    "Cypress",
+    "CLI"
   ],
   "main": "bundles/nrwl-angular.umd.js",
   "types": "nrwl-angular.d.ts",
@@ -30,12 +32,13 @@
     "migrations": "./migrations.json"
   },
   "peerDependencies": {
-    "@nrwl/workspace": "*",
-    "jasmine-marbles": "~0.4.0"
+    "@nrwl/workspace": "*"
   },
   "dependencies": {
-    "@schematics/angular": "~7.3.1",
     "@nrwl/cypress": "*",
-    "@nrwl/jest": "*"
+    "@nrwl/jest": "*",
+    "@angular-devkit/schematics": "8.3.14",
+    "@schematics/angular": "8.3.14",
+    "jasmine-marbles": "~0.6.0"
   }
 }

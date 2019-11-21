@@ -21,7 +21,9 @@ describe('getBaseWebpackPartial', () => {
       root: getSystemPath(normalize('/root')),
       statsJson: false
     };
-    (<any>TsConfigPathsPlugin).mockImplementation(class MockPathsPlugin {});
+    (<any>TsConfigPathsPlugin).mockImplementation(
+      function MockPathsPlugin() {}
+    );
   });
 
   describe('unconditional options', () => {
@@ -87,6 +89,22 @@ describe('getBaseWebpackPartial', () => {
       const result = getBaseWebpackPartial(input);
       expect(result.resolve.mainFields).toContain('module');
       expect(result.resolve.mainFields).toContain('main');
+    });
+
+    it('should configure stats', () => {
+      const result = getBaseWebpackPartial(input);
+
+      expect(result.stats).toEqual(
+        jasmine.objectContaining({
+          hash: true,
+          timings: false,
+          cached: false,
+          cachedAssets: false,
+          modules: false,
+          warnings: true,
+          errors: true
+        })
+      );
     });
   });
 
@@ -322,14 +340,9 @@ describe('getBaseWebpackPartial', () => {
 
       const licensePlugin = result.plugins.find(
         plugin => plugin instanceof LicenseWebpackPlugin
-      ) as LicenseWebpackPlugin;
-      const options = (<any>licensePlugin).options;
+      );
 
       expect(licensePlugin).toBeTruthy();
-      expect(options.pattern).toEqual(/.*/);
-      expect(options.suppressErrors).toEqual(true);
-      expect(options.perChunkOutput).toEqual(false);
-      expect(options.outputFilename).toEqual('3rdpartylicenses.txt');
     });
   });
 
@@ -343,6 +356,53 @@ describe('getBaseWebpackPartial', () => {
       expect(
         result.plugins.find(plugin => plugin instanceof ProgressPlugin)
       ).toBeTruthy();
+    });
+  });
+
+  describe('the verbose option', () => {
+    describe('when false', () => {
+      it('should configure stats to be not verbose', () => {
+        const result = getBaseWebpackPartial(input);
+
+        expect(result.stats).toEqual(
+          jasmine.objectContaining({
+            colors: true,
+            chunks: true,
+            assets: false,
+            chunkOrigins: false,
+            chunkModules: false,
+            children: false,
+            reasons: false,
+            version: false,
+            errorDetails: false,
+            moduleTrace: false,
+            usedExports: false
+          })
+        );
+      });
+    });
+
+    describe('when true', () => {
+      it('should configure stats to be verbose', () => {
+        input.verbose = true;
+        const result = getBaseWebpackPartial(input);
+
+        expect(result.stats).toEqual(
+          jasmine.objectContaining({
+            colors: false,
+            chunks: false,
+            assets: true,
+            chunkOrigins: true,
+            chunkModules: true,
+            children: true,
+            reasons: true,
+            version: true,
+            errorDetails: true,
+            moduleTrace: true,
+            usedExports: true
+          })
+        );
+      });
     });
   });
 });

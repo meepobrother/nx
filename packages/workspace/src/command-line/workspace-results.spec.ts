@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { WorkspaceResults } from './workspace-results';
 import { serializeJson } from '../utils/fileutils';
 import { stripIndents } from '@angular-devkit/core/src/utils/literals';
+import { output } from './output';
 
 describe('WorkspacesResults', () => {
   let results: WorkspaceResults;
@@ -21,7 +22,7 @@ describe('WorkspacesResults', () => {
 
   describe('success', () => {
     it('should return true when getting results', () => {
-      results.success('proj');
+      results.setResult('proj', true);
 
       expect(results.getResult('proj')).toBe(true);
     });
@@ -31,39 +32,17 @@ describe('WorkspacesResults', () => {
       spyOn(fs, 'unlinkSync');
       spyOn(fs, 'existsSync').and.returnValue(true);
 
-      results.success('proj');
+      results.setResult('proj', true);
       results.saveResults();
 
       expect(fs.writeSync).not.toHaveBeenCalled();
       expect(fs.unlinkSync).toHaveBeenCalledWith('dist/.nx-results');
     });
-
-    it('should print results', () => {
-      results.success('proj');
-      spyOn(console, 'log');
-
-      results.printResults(false, 'Success', 'Fail');
-
-      expect(console.log).toHaveBeenCalledWith('Success');
-    });
-
-    it('should tell warn the user that not all tests were run', () => {
-      (<any>results).startedWithFailedProjects = true;
-      results.success('proj');
-      spyOn(console, 'warn');
-
-      results.printResults(true, 'Success', 'Fail');
-
-      expect(console.warn).toHaveBeenCalledWith(stripIndents`
-          Warning: Only failed affected projects were run.
-          You should run above command WITHOUT --only-failed
-        `);
-    });
   });
 
   describe('fail', () => {
     it('should return false when getting results', () => {
-      results.fail('proj');
+      results.setResult('proj', false);
 
       expect(results.getResult('proj')).toBe(false);
     });
@@ -71,7 +50,7 @@ describe('WorkspacesResults', () => {
     it('should save results to file system', () => {
       spyOn(fs, 'writeFileSync');
 
-      results.fail('proj');
+      results.setResult('proj', false);
       results.saveResults();
 
       expect(fs.writeFileSync).toHaveBeenCalledWith(
@@ -82,26 +61,6 @@ describe('WorkspacesResults', () => {
             proj: false
           }
         })
-      );
-    });
-
-    it('should print results', () => {
-      results.fail('proj');
-      spyOn(console, 'error');
-
-      results.printResults(true, 'Success', 'Fail');
-
-      expect(console.error).toHaveBeenCalledWith('Fail');
-    });
-
-    it('should tell warn the user that not all tests were run', () => {
-      results.fail('proj');
-      spyOn(console, 'log');
-
-      results.printResults(false, 'Success', 'Fail');
-
-      expect(console.log).toHaveBeenCalledWith(
-        `You can isolate the above projects by passing --only-failed`
       );
     });
   });

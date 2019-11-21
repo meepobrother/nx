@@ -2,18 +2,8 @@ import { Tree } from '@angular-devkit/schematics';
 import { readJsonInTree } from './ast-utils';
 import { NxJson } from '../command-line/shared';
 
-export const angularSchematicNames = [
-  'class',
-  'component',
-  'directive',
-  'guard',
-  'module',
-  'pipe',
-  'service'
-];
-
 export function getWorkspacePath(host: Tree) {
-  const possibleFiles = ['/angular.json', '/.angular.json'];
+  const possibleFiles = ['/workspace.json', '/angular.json', '/.angular.json'];
   return possibleFiles.filter(path => host.exists(path))[0];
 }
 
@@ -46,10 +36,14 @@ export function replaceAppNameWithPath(
 ): any {
   if (typeof node === 'string') {
     const matchPattern = new RegExp(
-      `([^a-z0-9]+(${appName}))|((${appName})[^a-z0-9:]+)`,
+      `([^a-z0-9]*(${appName}))|((${appName})[^a-z0-9:]*)`,
       'gi'
     );
-    if (!!node.match(matchPattern)) {
+    if (
+      !!node.match(matchPattern) &&
+      node !== 'application' &&
+      node !== 'library'
+    ) {
       const r = node.replace(appName, root);
       return r.startsWith('/apps') || r.startsWith('/libs')
         ? r.substring(1)
@@ -60,7 +54,11 @@ export function replaceAppNameWithPath(
   } else if (Array.isArray(node)) {
     return node.map(j => replaceAppNameWithPath(j, appName, root));
   } else if (typeof node === 'object' && node) {
-    const forbiddenPropertyList: string[] = ['prefix', 'builder']; // Some of the properties should not be renamed
+    const forbiddenPropertyList: string[] = [
+      'prefix',
+      'builder',
+      'browserTarget'
+    ]; // Some of the properties should not be renamed
     return Object.keys(node).reduce(
       (m, c) => (
         (m[c] = !forbiddenPropertyList.includes(c)

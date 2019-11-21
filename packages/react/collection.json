@@ -1,11 +1,13 @@
 {
-  "name": "nx/react",
+  "name": "Nx React",
   "version": "0.1",
+  "extends": ["@nrwl/workspace"],
   "schematics": {
-    "ng-add": {
-      "factory": "./src/schematics/ng-add/ng-add",
-      "schema": "./src/schematics/ng-add/schema.json",
-      "description": "Add @nrwl/react to a project",
+    "init": {
+      "factory": "./src/schematics/init/init",
+      "schema": "./src/schematics/init/schema.json",
+      "description": "Initialize the @nrwl/react plugin",
+      "aliases": ["ng-add"],
       "hidden": true
     },
 
@@ -21,6 +23,27 @@
       "schema": "./src/schematics/library/schema.json",
       "aliases": ["lib"],
       "description": "Create a library"
+    },
+
+    "component": {
+      "factory": "./src/schematics/component/component",
+      "schema": "./src/schematics/component/schema.json",
+      "description": "Create a component",
+      "aliases": "c"
+    },
+
+    "redux": {
+      "factory": "./src/schematics/redux/redux",
+      "schema": "./src/schematics/redux/schema.json",
+      "description": "Create a redux slice for a project",
+      "aliases": ["slice"]
+    },
+
+    "storybook-configuration": {
+      "factory": "./src/schematics/storybook-configuration/configuration",
+      "schema": "./src/schematics/storybook-configuration/schema.json",
+      "description": "Set up storybook for a react library",
+      "hidden": false
     }
   }
 }

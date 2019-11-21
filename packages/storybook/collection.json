@@ -1,0 +1,25 @@
+{
+  "name": "Nx Cypress",
+  "version": "0.1",
+  "schematics": {
+    "init": {
+      "factory": "./src/schematics/init/init",
+      "schema": "./src/schematics/init/schema.json",
+      "description": "Add storybook configuration to the workspace",
+      "aliases": ["ng-add"],
+      "hidden": true
+    },
+    "configuration": {
+      "factory": "./src/schematics/configuration/configuration",
+      "schema": "./src/schematics/configuration/schema.json",
+      "description": "Add storybook configuration to a ui library",
+      "hidden": false
+    },
+    "cypress-project": {
+      "factory": "./src/schematics/cypress-project/cypress-project",
+      "schema": "./src/schematics/cypress-project/schema.json",
+      "description": "Add cypress e2e app to test a ui library that is set up for storybook",
+      "hidden": false
+    }
+  }
+}

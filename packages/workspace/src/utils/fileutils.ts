@@ -2,6 +2,7 @@ import { statSync } from 'fs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ensureDirSync } from 'fs-extra';
+import * as stripJsonComments from 'strip-json-comments';
 
 export function writeToFile(filePath: string, str: string) {
   ensureDirSync(path.dirname(filePath));
@@ -51,15 +52,19 @@ export function serializeJson(json: any): string {
  * @param path Path of the JSON file on the filesystem
  */
 export function readJsonFile<T = any>(path: string): T {
-  return JSON.parse(fs.readFileSync(path, 'utf-8'));
+  return JSON.parse(stripJsonComments(fs.readFileSync(path, 'utf-8')));
 }
 
 export function writeJsonFile(path: string, json: any) {
   writeToFile(path, serializeJson(json));
 }
 
-export function readCliConfigFile(): any {
-  return readJsonFile('.angular-cli.json');
+export function readWorkspaceConfigPath(): any {
+  if (fileExists('workspace.json')) {
+    return readJsonFile('workspace.json');
+  } else {
+    return readJsonFile('angular.json');
+  }
 }
 
 export function copyFile(file: string, target: string) {
@@ -117,4 +122,8 @@ export function renameSync(
   } catch (e) {
     cb(e);
   }
+}
+
+export function isRelativePath(path: string): boolean {
+  return path.startsWith('./') || path.startsWith('../');
 }

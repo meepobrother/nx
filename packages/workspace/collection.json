@@ -10,8 +10,8 @@
     },
 
     "ng-add": {
-      "factory": "./src/schematics/ng-add/ng-add",
-      "schema": "./src/schematics/ng-add/schema.json",
+      "factory": "./src/schematics/init/init",
+      "schema": "./src/schematics/init/schema.json",
       "description": "Convert an existing CLI project into an Nx Workspace",
       "hidden": true
     },
@@ -26,7 +26,15 @@
     "ng-new": {
       "factory": "./src/schematics/ng-new/ng-new",
       "schema": "./src/schematics/ng-new/schema.json",
-      "description": "Create a workspace"
+      "description": "Create a workspace",
+      "hidden": true
+    },
+
+    "tao-new": {
+      "factory": "./src/schematics/tao-new/tao-new",
+      "schema": "./src/schematics/tao-new/schema.json",
+      "description": "Create a workspace",
+      "hidden": true
     },
 
     "library": {

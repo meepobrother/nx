@@ -1,14 +1,17 @@
 import {
-  getImplicitDependencies,
   assertWorkspaceValidity,
+  createProjectMetadata,
+  getImplicitDependencies,
   getProjectNodes,
-  NxJson
+  NxJson,
+  ProjectNode,
+  ProjectType
 } from './shared';
-import { ProjectType, ProjectNode } from './affected-apps';
+import { DependencyType, Deps } from './deps-calculator';
 
 describe('assertWorkspaceValidity', () => {
-  let mockNxJson;
-  let mockAngularJson;
+  let mockNxJson: any;
+  let mockWorkspaceJson: any;
 
   beforeEach(() => {
     mockNxJson = {
@@ -33,7 +36,7 @@ describe('assertWorkspaceValidity', () => {
         }
       }
     };
-    mockAngularJson = {
+    mockWorkspaceJson = {
       projects: {
         app1: {},
         'app1-e2e': {},
@@ -46,23 +49,23 @@ describe('assertWorkspaceValidity', () => {
   });
 
   it('should not throw for a valid workspace', () => {
-    assertWorkspaceValidity(mockAngularJson, mockNxJson);
+    assertWorkspaceValidity(mockWorkspaceJson, mockNxJson);
   });
 
-  it('should throw for a missing project in angular.json', () => {
-    delete mockAngularJson.projects.app1;
+  it('should throw for a missing project in workspace.json', () => {
+    delete mockWorkspaceJson.projects.app1;
     try {
-      assertWorkspaceValidity(mockAngularJson, mockNxJson);
+      assertWorkspaceValidity(mockWorkspaceJson, mockNxJson);
       fail('Did not throw');
     } catch (e) {
-      expect(e.message).toContain('projects are missing in angular.json');
+      expect(e.message).toContain('projects are missing in');
     }
   });
 
   it('should throw for a missing project in nx.json', () => {
     delete mockNxJson.projects.app1;
     try {
-      assertWorkspaceValidity(mockAngularJson, mockNxJson);
+      assertWorkspaceValidity(mockWorkspaceJson, mockNxJson);
       fail('Did not throw');
     } catch (e) {
       expect(e.message).toContain('projects are missing in nx.json');
@@ -74,7 +77,7 @@ describe('assertWorkspaceValidity', () => {
       'README.md': ['invalidproj']
     };
     try {
-      assertWorkspaceValidity(mockAngularJson, mockNxJson);
+      assertWorkspaceValidity(mockWorkspaceJson, mockNxJson);
       fail('Did not throw');
     } catch (e) {
       expect(e.message).toContain(
@@ -89,7 +92,7 @@ describe('assertWorkspaceValidity', () => {
     mockNxJson.projects.app2.implicitDependencies = ['invalidproj'];
 
     try {
-      assertWorkspaceValidity(mockAngularJson, mockNxJson);
+      assertWorkspaceValidity(mockWorkspaceJson, mockNxJson);
       fail('Did not throw');
     } catch (e) {
       expect(e.message).toContain(
@@ -103,7 +106,7 @@ describe('assertWorkspaceValidity', () => {
 
 describe('getImplicitDependencies', () => {
   let mockNxJson: NxJson;
-  let mockAngularJson: any;
+  let mockworkspaceJson: any;
 
   beforeEach(() => {
     mockNxJson = {
@@ -129,7 +132,7 @@ describe('getImplicitDependencies', () => {
         }
       }
     };
-    mockAngularJson = {
+    mockworkspaceJson = {
       projects: {
         app1: {
           projectType: 'application'
@@ -160,8 +163,8 @@ describe('getImplicitDependencies', () => {
       };
 
       const result = getImplicitDependencies(
-        getProjectNodes(mockAngularJson, mockNxJson),
-        mockAngularJson,
+        getProjectNodes(mockworkspaceJson, mockNxJson),
+        mockworkspaceJson,
         mockNxJson
       );
 
@@ -182,8 +185,8 @@ describe('getImplicitDependencies', () => {
       };
 
       const result = getImplicitDependencies(
-        getProjectNodes(mockAngularJson, mockNxJson),
-        mockAngularJson,
+        getProjectNodes(mockworkspaceJson, mockNxJson),
+        mockworkspaceJson,
         mockNxJson
       );
 
@@ -209,8 +212,8 @@ describe('getImplicitDependencies', () => {
       delete mockNxJson.projects.app1;
       try {
         getImplicitDependencies(
-          getProjectNodes(mockAngularJson, mockNxJson),
-          mockAngularJson,
+          getProjectNodes(mockworkspaceJson, mockNxJson),
+          mockworkspaceJson,
           mockNxJson
         );
         fail('did not throw');
@@ -221,8 +224,8 @@ describe('getImplicitDependencies', () => {
   describe('project-based implicit dependencies', () => {
     it('should default appropriately', () => {
       const result = getImplicitDependencies(
-        getProjectNodes(mockAngularJson, mockNxJson),
-        mockAngularJson,
+        getProjectNodes(mockworkspaceJson, mockNxJson),
+        mockworkspaceJson,
         mockNxJson
       );
 
@@ -240,8 +243,8 @@ describe('getImplicitDependencies', () => {
       mockNxJson.projects.lib2.implicitDependencies = ['lib1'];
 
       const result = getImplicitDependencies(
-        getProjectNodes(mockAngularJson, mockNxJson),
-        mockAngularJson,
+        getProjectNodes(mockworkspaceJson, mockNxJson),
+        mockworkspaceJson,
         mockNxJson
       );
 
@@ -261,8 +264,8 @@ describe('getImplicitDependencies', () => {
       mockNxJson.projects['app1-e2e'].implicitDependencies = ['app2'];
 
       const result = getImplicitDependencies(
-        getProjectNodes(mockAngularJson, mockNxJson),
-        mockAngularJson,
+        getProjectNodes(mockworkspaceJson, mockNxJson),
+        mockworkspaceJson,
         mockNxJson
       );
 
@@ -278,8 +281,8 @@ describe('getImplicitDependencies', () => {
       mockNxJson.projects['app1-e2e'].implicitDependencies = [];
 
       const result = getImplicitDependencies(
-        getProjectNodes(mockAngularJson, mockNxJson),
-        mockAngularJson,
+        getProjectNodes(mockworkspaceJson, mockNxJson),
+        mockworkspaceJson,
         mockNxJson
       );
 
@@ -301,8 +304,8 @@ describe('getImplicitDependencies', () => {
       mockNxJson.projects.app2.implicitDependencies = ['app1'];
 
       const result = getImplicitDependencies(
-        getProjectNodes(mockAngularJson, mockNxJson),
-        mockAngularJson,
+        getProjectNodes(mockworkspaceJson, mockNxJson),
+        mockworkspaceJson,
         mockNxJson
       );
 
@@ -320,8 +323,8 @@ describe('getImplicitDependencies', () => {
 });
 
 describe('getProjectNodes', () => {
-  let mockNxJson;
-  let mockAngularJson;
+  let mockNxJson: any;
+  let mockworkspaceJson: any;
 
   beforeEach(() => {
     mockNxJson = {
@@ -343,7 +346,7 @@ describe('getProjectNodes', () => {
         }
       }
     };
-    mockAngularJson = {
+    mockworkspaceJson = {
       projects: {
         app1: {
           projectType: 'application'
@@ -366,7 +369,7 @@ describe('getProjectNodes', () => {
 
   it('should parse nodes as correct type', () => {
     const result: Pick<ProjectNode, 'name' | 'type'>[] = getProjectNodes(
-      mockAngularJson,
+      mockworkspaceJson,
       mockNxJson
     ).map(node => {
       return { name: node.name, type: node.type };
@@ -396,7 +399,7 @@ describe('getProjectNodes', () => {
   });
 
   it('should normalize missing architect configurations to an empty object', () => {
-    const result = getProjectNodes(mockAngularJson, mockNxJson).map(node => {
+    const result = getProjectNodes(mockworkspaceJson, mockNxJson).map(node => {
       return { name: node.name, architect: node.architect };
     });
     expect(result).toEqual([
@@ -421,5 +424,237 @@ describe('getProjectNodes', () => {
         architect: {}
       }
     ]);
+  });
+});
+
+describe('createAffectedMetadata', () => {
+  let projectNodes: Partial<ProjectNode>[];
+  let dependencies: Deps;
+
+  beforeEach(() => {
+    projectNodes = [
+      {
+        name: 'app1'
+      },
+      {
+        name: 'app2'
+      },
+      {
+        name: 'app1-e2e'
+      },
+      {
+        name: 'customName-e2e'
+      },
+      {
+        name: 'lib1'
+      },
+      {
+        name: 'lib2'
+      }
+    ];
+    dependencies = {
+      'app1-e2e': [
+        {
+          projectName: 'app1',
+          type: DependencyType.implicit
+        }
+      ],
+      'customName-e2e': [
+        {
+          projectName: 'app2',
+          type: DependencyType.implicit
+        }
+      ],
+      app1: [
+        {
+          projectName: 'lib1',
+          type: DependencyType.es6Import
+        }
+      ],
+      app2: [
+        {
+          projectName: 'lib1',
+          type: DependencyType.es6Import
+        },
+        {
+          projectName: 'lib2',
+          type: DependencyType.es6Import
+        }
+      ],
+      lib1: [],
+      lib2: []
+    };
+  });
+
+  it('should translate project nodes array to map', () => {
+    expect(
+      createProjectMetadata(
+        projectNodes as ProjectNode[],
+        dependencies,
+        [],
+        false
+      ).dependencyGraph.projects
+    ).toEqual({
+      app1: {
+        name: 'app1'
+      },
+      app2: {
+        name: 'app2'
+      },
+      'app1-e2e': {
+        name: 'app1-e2e'
+      },
+      'customName-e2e': {
+        name: 'customName-e2e'
+      },
+      lib1: {
+        name: 'lib1'
+      },
+      lib2: {
+        name: 'lib2'
+      }
+    });
+  });
+
+  it('should include the dependencies', () => {
+    expect(
+      createProjectMetadata(
+        projectNodes as ProjectNode[],
+        dependencies,
+        [],
+        false
+      ).dependencyGraph.dependencies
+    ).toEqual(dependencies);
+  });
+
+  it('should find the roots', () => {
+    expect(
+      createProjectMetadata(
+        projectNodes as ProjectNode[],
+        dependencies,
+        [],
+        false
+      ).dependencyGraph.roots
+    ).toEqual(['app1-e2e', 'customName-e2e']);
+  });
+
+  it('should set projects as touched', () => {
+    const { projectStates } = createProjectMetadata(
+      projectNodes as ProjectNode[],
+      dependencies,
+      ['app1', 'lib2'],
+      false
+    );
+    expect(projectStates.app1.touched).toEqual(true);
+    expect(projectStates.lib2.touched).toEqual(true);
+
+    expect(projectStates.lib1.touched).toEqual(false);
+    expect(projectStates.app2.touched).toEqual(false);
+    expect(projectStates['customName-e2e'].touched).toEqual(false);
+    expect(projectStates['app1-e2e'].touched).toEqual(false);
+  });
+
+  it('should set touched projects as affected', () => {
+    const { projectStates } = createProjectMetadata(
+      projectNodes as ProjectNode[],
+      dependencies,
+      ['app1', 'lib2'],
+      false
+    );
+    expect(projectStates.app1.affected).toEqual(true);
+    expect(projectStates.lib2.affected).toEqual(true);
+  });
+
+  it('should set dependents of touched projects as affected', () => {
+    const { projectStates } = createProjectMetadata(
+      projectNodes as ProjectNode[],
+      dependencies,
+      ['app1'],
+      false
+    );
+    expect(projectStates.app1.affected).toEqual(true);
+    expect(projectStates['app1-e2e'].affected).toEqual(true);
+
+    expect(projectStates.lib1.affected).toEqual(false);
+    expect(projectStates.lib2.affected).toEqual(false);
+    expect(projectStates.app2.affected).toEqual(false);
+    expect(projectStates['customName-e2e'].affected).toEqual(false);
+  });
+
+  it('should set dependents of touched projects as affected (2)', () => {
+    const { projectStates } = createProjectMetadata(
+      projectNodes as ProjectNode[],
+      dependencies,
+      ['lib1'],
+      false
+    );
+    expect(projectStates.app1.affected).toEqual(true);
+    expect(projectStates['app1-e2e'].affected).toEqual(true);
+    expect(projectStates.lib1.affected).toEqual(true);
+    expect(projectStates.app2.affected).toEqual(true);
+    expect(projectStates['customName-e2e'].affected).toEqual(true);
+
+    expect(projectStates.lib2.affected).toEqual(false);
+  });
+
+  it('should not set any projects as affected when none are touched', () => {
+    const { projectStates } = createProjectMetadata(
+      projectNodes as ProjectNode[],
+      dependencies,
+      [],
+      false
+    );
+    expect(projectStates.app1.affected).toEqual(false);
+    expect(projectStates.app2.affected).toEqual(false);
+    expect(projectStates.lib1.affected).toEqual(false);
+    expect(projectStates.lib2.affected).toEqual(false);
+    expect(projectStates['app1-e2e'].affected).toEqual(false);
+    expect(projectStates['customName-e2e'].affected).toEqual(false);
+  });
+
+  it('should handle circular dependencies', () => {
+    dependencies['lib2'].push({
+      projectName: 'app2',
+      type: DependencyType.es6Import
+    });
+    const metadata = createProjectMetadata(
+      projectNodes as ProjectNode[],
+      dependencies,
+      ['lib2'],
+      false
+    );
+    const { dependencyGraph, projectStates } = metadata;
+    expect(dependencyGraph.roots).toEqual(['app1-e2e', 'customName-e2e']);
+    expect(projectStates.app1.affected).toEqual(false);
+    expect(projectStates.app2.affected).toEqual(true);
+    expect(projectStates.lib1.affected).toEqual(false);
+    expect(projectStates.lib2.affected).toEqual(true);
+    expect(projectStates['app1-e2e'].affected).toEqual(false);
+    expect(projectStates['customName-e2e'].affected).toEqual(true);
+  });
+
+  it('should cases where there is no root', () => {
+    dependencies['lib1'].push({
+      projectName: 'app1-e2e',
+      type: DependencyType.es6Import
+    });
+    dependencies['lib2'].push({
+      projectName: 'customName-e2e',
+      type: DependencyType.es6Import
+    });
+    const metadata = createProjectMetadata(
+      projectNodes as ProjectNode[],
+      dependencies,
+      ['app1-e2e', 'customName-e2e'],
+      false
+    );
+    const { dependencyGraph, projectStates } = metadata;
+    expect(dependencyGraph.roots).toEqual([]);
+    expect(projectStates.app1.affected).toEqual(true);
+    expect(projectStates.app2.affected).toEqual(true);
+    expect(projectStates.lib1.affected).toEqual(true);
+    expect(projectStates.lib2.affected).toEqual(true);
+    expect(projectStates['app1-e2e'].affected).toEqual(true);
+    expect(projectStates['customName-e2e'].affected).toEqual(true);
   });
 });

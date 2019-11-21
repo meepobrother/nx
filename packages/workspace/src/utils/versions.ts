@@ -1,7 +1,8 @@
 export const nxVersion = '*';
 
-export const angularCliVersion = '7.3.1';
-export const typescriptVersion = '~3.2.2';
-export const prettierVersion = '1.16.4';
-export const jasmineMarblesVersion = '^0.4.0';
-export const angularVersion = '^7.0.0';
+export const angularCliVersion = '8.3.14';
+export const typescriptVersion = '~3.5.3';
+export const prettierVersion = '1.18.2';
+export const typescriptESLintVersion = '2.3.2';
+export const eslintVersion = '6.1.0';
+export const eslintConfigPrettierVersion = '6.0.0';

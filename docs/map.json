@@ -1,149 +1,467 @@
 [
   {
-    "name": "Getting Started",
-    "id": "getting-started",
+    "id": "angular",
     "itemList": [
-      {
-        "name": "What is Nx?",
-        "id": "what-is-nx"
-      },
       {
         "name": "Getting Started",
-        "id": "getting-started"
+        "id": "getting-started",
+        "itemList": [
+          {
+            "name": "What is Nx?",
+            "id": "what-is-nx"
+          },
+          {
+            "name": "Getting Started",
+            "id": "getting-started"
+          },
+          {
+            "name": "Nx and Angular CLI",
+            "id": "nx-and-cli"
+          },
+          {
+            "name": "Resources",
+            "id": "resources"
+          },
+          {
+            "name": "About",
+            "id": "about",
+            "file": "shared/about"
+          }
+        ]
       },
       {
-        "name": "Nx and Angular CLI",
-        "id": "nx-and-cli"
+        "name": "Tutorial",
+        "id": "tutorial",
+        "itemList": [
+          {
+            "name": "1 - Create Application",
+            "id": "01-create-application"
+          },
+          {
+            "name": "2 - Add E2E Test",
+            "id": "02-add-e2e-test"
+          },
+          {
+            "name": "3 - Display Todos",
+            "id": "03-display-todos"
+          },
+          {
+            "name": "4 - Connect to API",
+            "id": "04-connect-to-api"
+          },
+          {
+            "name": "5 - Add Node Application",
+            "id": "05-add-node-app"
+          },
+          {
+            "name": "6 - Configure Proxy",
+            "id": "06-proxy"
+          },
+          {
+            "name": "7 - Share Code",
+            "id": "07-share-code"
+          },
+          {
+            "name": "8 - Create Libraries",
+            "id": "08-create-libs"
+          },
+          {
+            "name": "9 - Dep Graph",
+            "id": "09-dep-graph"
+          },
+          {
+            "name": "10 - Test Affected Projects",
+            "id": "10-test-affected-projects"
+          },
+          {
+            "name": "11 - Build Affected Projects",
+            "id": "11-build-affected-projects"
+          },
+          {
+            "name": "12 - Summary",
+            "id": "12-summary"
+          }
+        ]
       },
       {
-        "name": "Resources",
-        "id": "resources"
+        "name": "Fundamentals",
+        "id": "fundamentals",
+        "itemList": [
+          {
+            "name": "Using Modern Tools",
+            "id": "use-modern-tools"
+          },
+          {
+            "name": "Building Full-Stack Applications",
+            "id": "build-full-stack-applications"
+          },
+          {
+            "name": "Monorepos and Automation",
+            "id": "monorepos-automation"
+          }
+        ]
       },
       {
-        "name": "About",
-        "id": "about"
+        "name": "Guides",
+        "id": "guides",
+        "itemList": [
+          {
+            "name": "Using Cypress",
+            "id": "modernize-cypress",
+            "file": "shared/modernize-cypress"
+          },
+          {
+            "name": "Using Jest",
+            "id": "modernize-jest",
+            "file": "shared/modernize-jest"
+          },
+          {
+            "name": "Rebuilding and Retesting What is Affected",
+            "id": "monorepo-affected",
+            "file": "shared/monorepo-affected"
+          },
+          {
+            "name": "Analyzing & Visualizing Workspaces",
+            "id": "monorepo-dependency-diagrams",
+            "file": "shared/monorepo-dependency-diagrams"
+          },
+          {
+            "name": "Imposing Constraints on the Dependency Graph",
+            "id": "monorepo-tags",
+            "file": "shared/monorepo-tags"
+          },
+          {
+            "name": "Updating Nx",
+            "id": "update"
+          },
+          {
+            "name": "Using React",
+            "id": "react"
+          },
+          {
+            "name": "Building Angular and React Applications Together With Nx",
+            "id": "react-and-angular"
+          },
+          {
+            "name": "Using NgRx",
+            "id": "misc-ngrx"
+          },
+          {
+            "name": "Using DataPersistence",
+            "id": "misc-data-persistence"
+          },
+          {
+            "name": "Upgrading AngularJS Applications",
+            "id": "misc-upgrade"
+          },
+          {
+            "name": "Using Nx at Enterprises",
+            "id": "monorepo-nx-enterprise",
+            "file": "shared/monorepo-nx-enterprise"
+          },
+          {
+            "name": "Lazy Loading Code",
+            "id": "misc-lazy-loading"
+          },
+          {
+            "name": "Changes between Nx 7 and Nx 8",
+            "id": "nx7-to-nx8"
+          }
+        ]
       }
     ]
   },
   {
-    "name": "Tutorial",
-    "id": "tutorial",
+    "id": "web",
     "itemList": [
       {
-        "name": "1 - Create Application",
-        "id": "01-create-application"
+        "name": "Getting Started",
+        "id": "getting-started",
+        "itemList": [
+          {
+            "name": "What is Nx?",
+            "id": "what-is-nx"
+          },
+          {
+            "name": "Getting Started",
+            "id": "getting-started"
+          },
+          {
+            "name": "Resources",
+            "id": "resources"
+          },
+          {
+            "name": "About",
+            "id": "about",
+            "file": "shared/about"
+          }
+        ]
       },
       {
-        "name": "2 - Add E2E Test",
-        "id": "02-add-e2e-test"
+        "name": "Tutorial",
+        "id": "tutorial",
+        "itemList": [
+          {
+            "name": "1 - Create Application",
+            "id": "01-create-application"
+          },
+          {
+            "name": "2 - Add E2E Test",
+            "id": "02-add-e2e-test"
+          },
+          {
+            "name": "3 - Display Todos",
+            "id": "03-display-todos"
+          },
+          {
+            "name": "4 - Connect to API",
+            "id": "04-connect-to-api"
+          },
+          {
+            "name": "5 - Add Node Application",
+            "id": "05-add-node-app"
+          },
+          {
+            "name": "6 - Configure Proxy",
+            "id": "06-proxy"
+          },
+          {
+            "name": "7 - Share Code",
+            "id": "07-share-code"
+          },
+          {
+            "name": "8 - Create Libraries",
+            "id": "08-create-libs"
+          },
+          {
+            "name": "9 - Dep Graph",
+            "id": "09-dep-graph"
+          },
+          {
+            "name": "10 - Test Affected Projects",
+            "id": "10-test-affected-projects"
+          },
+          {
+            "name": "11 - Build Affected Projects",
+            "id": "11-build-affected-projects"
+          },
+          {
+            "name": "12 - Summary",
+            "id": "12-summary"
+          }
+        ]
       },
       {
-        "name": "3 - Display Todos",
-        "id": "03-display-todos"
+        "name": "Fundamentals",
+        "id": "fundamentals",
+        "itemList": [
+          {
+            "name": "Using Modern Tools",
+            "id": "use-modern-tools"
+          },
+          {
+            "name": "Building Full-Stack Applications",
+            "id": "build-full-stack-applications"
+          },
+          {
+            "name": "Monorepos and Automation",
+            "id": "monorepos-automation"
+          }
+        ]
       },
       {
-        "name": "4 - Connect to API",
-        "id": "04-connect-to-api"
-      },
-      {
-        "name": "5 - Add Node Application",
-        "id": "05-add-node-app"
-      },
-      {
-        "name": "6 - Configure Proxy",
-        "id": "06-proxy"
-      },
-      {
-        "name": "7 - Share Code",
-        "id": "07-share-code"
-      },
-      {
-        "name": "8 - Create Libraries",
-        "id": "08-create-libs"
-      },
-      {
-        "name": "9 - Dep Graph",
-        "id": "09-dep-graph"
-      },
-      {
-        "name": "10 - Test Affected Projects",
-        "id": "10-test-affected-projects"
-      },
-      {
-        "name": "11 - Build Affected Projects",
-        "id": "11-build-affected-projects"
-      },
-      {
-        "name": "12 - Summary",
-        "id": "12-summary"
+        "name": "Guides",
+        "id": "guides",
+        "itemList": [
+          {
+            "name": "Nx CLI",
+            "id": "cli"
+          },
+          {
+            "name": "Updating Nx",
+            "id": "update",
+            "file": "shared/update"
+          },
+          {
+            "name": "Using Cypress",
+            "id": "modernize-cypress",
+            "file": "shared/modernize-cypress"
+          },
+          {
+            "name": "Using Jest",
+            "id": "modernize-jest",
+            "file": "shared/modernize-jest"
+          },
+          {
+            "name": "Rebuilding and Retesting What is Affected",
+            "id": "monorepo-affected",
+            "file": "shared/monorepo-affected"
+          },
+          {
+            "name": "Analyzing & Visualizing Workspaces",
+            "id": "monorepo-dependency-diagrams",
+            "file": "shared/monorepo-dependency-diagrams"
+          },
+          {
+            "name": "Using Nx at Enterprises",
+            "id": "monorepo-nx-enterprise",
+            "file": "shared/monorepo-nx-enterprise"
+          },
+          {
+            "name": "Imposing Constraints on the Dependency Graph",
+            "id": "monorepo-tags",
+            "file": "shared/monorepo-tags"
+          }
+        ]
       }
     ]
   },
   {
-    "name": "Fundamentals",
-    "id": "fundamentals",
+    "id": "react",
     "itemList": [
       {
-        "name": "Using Modern Tools",
-        "id": "use-modern-tools"
+        "name": "Getting Started",
+        "id": "getting-started",
+        "itemList": [
+          {
+            "name": "What is Nx?",
+            "id": "what-is-nx"
+          },
+          {
+            "name": "Getting Started",
+            "id": "getting-started"
+          },
+          {
+            "name": "Resources",
+            "id": "resources"
+          },
+          {
+            "name": "About",
+            "id": "about",
+            "file": "shared/about"
+          }
+        ]
       },
       {
-        "name": "Building Full-Stack Applications",
-        "id": "build-full-stack-applications"
+        "name": "Tutorial",
+        "id": "tutorial",
+        "itemList": [
+          {
+            "name": "1 - Create Application",
+            "id": "01-create-application"
+          },
+          {
+            "name": "2 - Add E2E Test",
+            "id": "02-add-e2e-test"
+          },
+          {
+            "name": "3 - Display Todos",
+            "id": "03-display-todos"
+          },
+          {
+            "name": "4 - Connect to API",
+            "id": "04-connect-to-api"
+          },
+          {
+            "name": "5 - Add Node Application",
+            "id": "05-add-node-app"
+          },
+          {
+            "name": "6 - Configure Proxy",
+            "id": "06-proxy"
+          },
+          {
+            "name": "7 - Share Code",
+            "id": "07-share-code"
+          },
+          {
+            "name": "8 - Create Libraries",
+            "id": "08-create-libs"
+          },
+          {
+            "name": "9 - Dep Graph",
+            "id": "09-dep-graph"
+          },
+          {
+            "name": "10 - Test Affected Projects",
+            "id": "10-test-affected-projects"
+          },
+          {
+            "name": "11 - Build Affected Projects",
+            "id": "11-build-affected-projects"
+          },
+          {
+            "name": "12 - Summary",
+            "id": "12-summary"
+          }
+        ]
       },
       {
-        "name": "Developing Like Google",
-        "id": "develop-like-google"
-      }
-    ]
-  },
-  {
-    "name": "Guides",
-    "id": "guides",
-    "itemList": [
-      {
-        "name": "Using Cypress",
-        "id": "modernize-cypress"
+        "name": "Fundamentals",
+        "id": "fundamentals",
+        "itemList": [
+          {
+            "name": "Using Modern Tools",
+            "id": "use-modern-tools"
+          },
+          {
+            "name": "Building Full-Stack Applications",
+            "id": "build-full-stack-applications"
+          },
+          {
+            "name": "Monorepos and Automation",
+            "id": "monorepos-automation"
+          }
+        ]
       },
       {
-        "name": "Using Jest",
-        "id": "modernize-jest"
-      },
-      {
-        "name": "Rebuilding and Retesting What is Affected",
-        "id": "monorepo-affected"
-      },
-      {
-        "name": "Analysing & Visualizing Workspaces",
-        "id": "monorepo-dependency-diagrams"
-      },
-      {
-        "name": "Imposing Constraints on the Dependency Graph",
-        "id": "monorepo-tags"
-      },
-      {
-        "name": "Using React",
-        "id": "react"
-      },
-      {
-        "name": "Building Angular and React Applications Together With Nx",
-        "id": "react-and-angular"
-      },
-      {
-        "name": "Setting Up NgRx",
-        "id": "misc-ngrx"
-      },
-      {
-        "name": "Using DataPersistence",
-        "id": "misc-data-persistence"
-      },
-      {
-        "name": "Upgrading AngularJS Applications",
-        "id": "misc-upgrade"
-      },
-      {
-        "name": "Using Nx at Enterprises",
-        "id": "monorepo-nx-enterprise"
+        "name": "Guides",
+        "id": "guides",
+        "itemList": [
+          {
+            "name": "Nx CLI",
+            "id": "cli"
+          },
+          {
+            "name": "Next.js",
+            "id": "nextjs"
+          },
+          {
+            "name": "Updating Nx",
+            "id": "update",
+            "file": "shared/update"
+          },
+          {
+            "name": "Using Cypress",
+            "id": "modernize-cypress",
+            "file": "shared/modernize-cypress"
+          },
+          {
+            "name": "Using Jest",
+            "id": "modernize-jest",
+            "file": "shared/modernize-jest"
+          },
+          {
+            "name": "Rebuilding and Retesting What is Affected",
+            "id": "monorepo-affected",
+            "file": "shared/monorepo-affected"
+          },
+          {
+            "name": "Analyzing & Visualizing Workspaces",
+            "id": "monorepo-dependency-diagrams",
+            "file": "shared/monorepo-dependency-diagrams"
+          },
+          {
+            "name": "Using Nx at Enterprises",
+            "id": "monorepo-nx-enterprise",
+            "file": "shared/monorepo-nx-enterprise"
+          },
+          {
+            "name": "Imposing Constraints on the Dependency Graph",
+            "id": "monorepo-tags",
+            "file": "shared/monorepo-tags"
+          }
+        ]
       }
     ]
   }

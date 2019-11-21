@@ -11,6 +11,10 @@
       "type": "string",
       "description": "The name of the Typescript configuration file."
     },
+    "outputPath": {
+      "type": "string",
+      "description": "The output path of the generated files."
+    },
     "watch": {
       "type": "boolean",
       "description": "Run build when files change.",
@@ -57,6 +61,11 @@
     "statsJson": {
       "type": "boolean",
       "description": "Generates a 'stats.json' file which can be analyzed using tools such as: #webpack-bundle-analyzer' or https: //webpack.github.io/analyse.",
+      "default": false
+    },
+    "verbose": {
+      "type": "boolean",
+      "description": "Emits verbose output",
       "default": false
     },
     "extractLicenses": {

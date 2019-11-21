@@ -1,14 +1,42 @@
 #!/usr/bin/env node
+import { execSync } from 'child_process';
+import { platform } from 'os';
 import * as yargs from 'yargs';
-
-import { affected } from './affected';
+import { nxVersion } from '../utils/versions';
+import { affected, runMany } from './run-tasks';
+import { generateGraph } from './dep-graph';
 import { format } from './format';
-import { update } from './update';
-import { lint } from './lint';
+import { workspaceLint } from './lint';
+import { list } from './list';
+import { report } from './report';
 import { workspaceSchematic } from './workspace-schematic';
-import { generateGraph, OutputType } from './dep-graph';
 
 const noop = (yargs: yargs.Argv): yargs.Argv => yargs;
+
+export const supportedNxCommands = [
+  'affected',
+  'affected:apps',
+  'affected:libs',
+  'affected:build',
+  'affected:test',
+  'affected:e2e',
+  'affected:dep-graph',
+  'affected:lint',
+  'print-affected',
+  'dep-graph',
+  'format',
+  'format:check',
+  'format:write',
+  'workspace-schematic',
+  'workspace-lint',
+  'migrate',
+  'report',
+  'run-many',
+  'list',
+  'help',
+  '--help',
+  '--version'
+];
 
 /**
  * Exposing the Yargs commands object so the documentation generator can
@@ -18,31 +46,49 @@ const noop = (yargs: yargs.Argv): yargs.Argv => yargs;
  * be executed correctly.
  */
 export const commandsObject = yargs
-  .usage('Angular CLI power-ups for modern Web development')
+  .usage('Extensible Dev Tools for Monorepos')
+  .command(
+    'run [project][:target][:configuration] [options, ...]',
+    `
+    Run a target for a project 
+    (e.g., nx run myapp:serve:production). 
+    
+    You can also use the infix notation to run a target:
+    (e.g., nx serve myapp --configuration=production)
+    `
+  )
+  .command(
+    'generate [schematic-collection:][schematic] [options, ...]',
+    `
+    Generate code
+    (e.g., nx generate @nrwl/web:app myapp). 
+    `
+  )
   .command(
     'affected',
     'Run task for affected projects',
-    yargs => withAffectedOptions(withParallel(yargs)),
-    args => affected(args)
+    yargs => withAffectedOptions(withParallel(withTarget(yargs))),
+    args => affected('affected', { ...args })
+  )
+  .command(
+    'run-many',
+    'Run task for multiple projects',
+    yargs => withRunManyOptions(withParallel(withTarget(yargs))),
+    args => runMany({ ...args })
   )
   .command(
     'affected:apps',
     'Print applications affected by changes',
     withAffectedOptions,
-    args =>
-      affected({
-        ...args,
-        target: 'apps'
-      })
+    args => affected('apps', { ...args })
   )
   .command(
     'affected:libs',
     'Print libraries affected by changes',
     withAffectedOptions,
     args =>
-      affected({
-        ...args,
-        target: 'libs'
+      affected('libs', {
+        ...args
       })
   )
   .command(
@@ -50,7 +96,7 @@ export const commandsObject = yargs
     'Build applications and publishable libraries affected by changes',
     yargs => withAffectedOptions(withParallel(yargs)),
     args =>
-      affected({
+      affected('affected', {
         ...args,
         target: 'build'
       })
@@ -60,7 +106,7 @@ export const commandsObject = yargs
     'Test projects affected by changes',
     yargs => withAffectedOptions(withParallel(yargs)),
     args =>
-      affected({
+      affected('affected', {
         ...args,
         target: 'test'
       })
@@ -68,9 +114,9 @@ export const commandsObject = yargs
   .command(
     'affected:e2e',
     'Run e2e tests for the applications affected by changes',
-    withAffectedOptions,
+    yargs => withAffectedOptions(withParallel(yargs)),
     args =>
-      affected({
+      affected('affected', {
         ...args,
         target: 'e2e'
       })
@@ -80,9 +126,17 @@ export const commandsObject = yargs
     'Graph dependencies affected by changes',
     yargs => withAffectedOptions(withDepGraphOptions(yargs)),
     args =>
-      affected({
-        ...args,
-        target: 'dep-graph'
+      affected('dep-graph', {
+        ...args
+      })
+  )
+  .command(
+    'print-affected',
+    'Graph execution plan',
+    yargs => withAffectedOptions(yargs),
+    args =>
+      affected('print-affected', {
+        ...args
       })
   )
   .command(
@@ -90,7 +144,7 @@ export const commandsObject = yargs
     'Lint projects affected by changes',
     yargs => withAffectedOptions(withParallel(yargs)),
     args =>
-      affected({
+      affected('affected', {
         ...args,
         target: 'lint'
       })
@@ -98,8 +152,8 @@ export const commandsObject = yargs
   .command(
     'dep-graph',
     'Graph dependencies within workspace',
-    yargs => withAffectedOptions(withDepGraphOptions(yargs)),
-    args => generateGraph(args)
+    yargs => withDepGraphOptions(yargs),
+    args => generateGraph(args as any, [])
   )
   .command(
     'format:check',
@@ -114,15 +168,12 @@ export const commandsObject = yargs
     args => format('write', args)
   )
   .alias('format:write', 'format')
-  .command('lint [files..]', 'Lint workspace or list of files', noop, _ =>
-    lint()
+  .command(
+    'workspace-lint [files..]',
+    'Lint workspace or list of files',
+    noop,
+    _ => workspaceLint()
   )
-  .command('update:check', 'Check for workspace updates', noop, _ =>
-    update(['check'])
-  )
-  .command('update:skip', 'Skip workspace updates', noop, _ => update(['skip']))
-  .command('update', 'Update workspace', noop, _ => update([]))
-  .alias('update', 'migrates') // TODO: Remove after 1.0
   .command(
     'workspace-schematic [name]',
     'Runs a workspace schematic from the tools/schematics directory',
@@ -145,10 +196,28 @@ export const commandsObject = yargs
     },
     () => workspaceSchematic(process.argv.slice(3))
   )
+  .command(
+    'migrate',
+    `Creates a migrations file or runs migrations from the migrations file.
+- Migrate packages and create migrations.json (e.g., nx migrate @nrwl/workspace@latest)      
+- Run migrations (e.g., nx migrate --run-migrations=migrations.json)      
+    `,
+    yargs => yargs,
+    () => {
+      const executable =
+        platform() === 'win32'
+          ? `.\\node_modules\\.bin\\tao`
+          : `./node_modules/.bin/tao`;
+      execSync(`${executable} migrate ${process.argv.slice(3).join(' ')}`, {
+        stdio: ['inherit', 'inherit', 'inherit']
+      });
+    }
+  )
+  .command(report)
+  .command(list)
   .help('help')
-  .version()
-  .option('quiet', { type: 'boolean', hidden: true })
-  .demandCommand();
+  .version(nxVersion)
+  .option('quiet', { type: 'boolean', hidden: true });
 
 function withFormatOptions(yargs: yargs.Argv): yargs.Argv {
   return withAffectedOptions(yargs).option('apps-and-libs', {
@@ -159,7 +228,8 @@ function withFormatOptions(yargs: yargs.Argv): yargs.Argv {
 function withAffectedOptions(yargs: yargs.Argv): yargs.Argv {
   return yargs
     .option('files', {
-      describe: 'A list of files delimited by commas',
+      describe:
+        'Change the way Nx is calculating the affected command by providing directly changed files, list of files delimited by commas',
       type: 'array',
       requiresArg: true,
       coerce: parseCSV
@@ -196,6 +266,15 @@ function withAffectedOptions(yargs: yargs.Argv): yargs.Argv {
       coerce: parseCSV,
       default: []
     })
+    .options('runner', {
+      describe: 'This is the name of the tasks runner configured in nx.json',
+      type: 'string'
+    })
+    .options('configuration', {
+      describe:
+        'This is the configuration to use when performing tasks on projects',
+      type: 'string'
+    })
     .options('only-failed', {
       describe: 'Isolate projects which previously failed',
       type: 'boolean',
@@ -203,6 +282,9 @@ function withAffectedOptions(yargs: yargs.Argv): yargs.Argv {
     })
     .option('verbose', {
       describe: 'Print additional error stack trace on failure'
+    })
+    .option('plain', {
+      describe: 'Produces a plain output for affected:apps and affected:libs'
     })
     .conflicts({
       files: ['uncommitted', 'untracked', 'base', 'head', 'all'],
@@ -212,15 +294,59 @@ function withAffectedOptions(yargs: yargs.Argv): yargs.Argv {
     });
 }
 
+function withRunManyOptions(yargs: yargs.Argv): yargs.Argv {
+  return yargs
+    .option('projects', {
+      describe: 'Projects to run (comma delimited)',
+      type: 'string'
+    })
+    .option('all', { describe: 'All projects' })
+    .nargs('all', 0)
+    .check(({ all, projects }) => {
+      if ((all && projects) || (!all && !projects))
+        throw new Error('You must provide either --all or --projects');
+      return true;
+    })
+    .options('runner', {
+      describe: 'This is the name of the tasks runner configured in nx.json',
+      type: 'string'
+    })
+    .options('configuration', {
+      describe:
+        'This is the configuration to use when performing tasks on projects',
+      type: 'string'
+    })
+    .options('only-failed', {
+      describe: 'Isolate projects which previously failed',
+      type: 'boolean',
+      default: false
+    })
+    .option('verbose', {
+      describe: 'Print additional error stack trace on failure'
+    })
+    .conflicts({
+      all: 'projects'
+    });
+}
+
 function withDepGraphOptions(yargs: yargs.Argv): yargs.Argv {
   return yargs
-    .describe('file', 'output file (e.g. --file=.vis/output.json)')
-    .choices('output', [
-      OutputType.json,
-      OutputType.dot,
-      OutputType.html,
-      OutputType.svg
-    ]);
+    .option('file', {
+      describe: 'output file (e.g. --file=output.json)',
+      type: 'string'
+    })
+    .option('filter', {
+      describe:
+        'Use to limit the dependency graph to only show specific projects, list of projects delimited by commas.',
+      type: 'array',
+      coerce: parseCSV
+    })
+    .option('exclude', {
+      describe:
+        'List of projects delimited by commas to exclude from the dependency graph.',
+      type: 'array',
+      coerce: parseCSV
+    });
 }
 
 function parseCSV(args: string[]) {
@@ -246,4 +372,14 @@ function withParallel(yargs: yargs.Argv): yargs.Argv {
       type: 'number',
       default: 3
     });
+}
+
+function withTarget(yargs: yargs.Argv): yargs.Argv {
+  return yargs.option('target', {
+    describe: 'Task to run for affected projects',
+    type: 'string',
+    requiresArg: true,
+    demandOption: true,
+    global: false
+  });
 }

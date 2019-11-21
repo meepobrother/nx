@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import { readJsonFile, writeJsonFile } from '../utils/fileutils';
 import { unlinkSync } from 'fs';
-import { stripIndents } from '@angular-devkit/core/src/utils/literals';
 
 const RESULTS_FILE = 'dist/.nx-results';
 
@@ -11,13 +10,13 @@ interface NxResults {
 }
 
 export class WorkspaceResults {
-  private startedWithFailedProjects: boolean;
+  public startedWithFailedProjects: boolean;
   private commandResults: NxResults = {
     command: this.command,
     results: {}
   };
 
-  private get failedProjects() {
+  get failedProjects() {
     return Object.entries(this.commandResults.results)
       .filter(([_, result]) => !result)
       .map(([project]) => project);
@@ -37,24 +36,18 @@ export class WorkspaceResults {
         if (this.startedWithFailedProjects) {
           this.commandResults = commandResults;
         }
-      } catch (e) {
-        // RESULTS_FILE is likely not valid JSON
-        console.error('Error: .nx-results file is corrupted.');
-        console.error(e);
+      } catch {
+        /**
+         * If we got here it is likely that RESULTS_FILE is not valid JSON.
+         * It is safe to continue, and it does not make much sense to give the
+         * user feedback as the file will be updated automatically.
+         */
       }
     }
   }
 
   getResult(projectName: string): boolean {
     return this.commandResults.results[projectName];
-  }
-
-  fail(projectName: string) {
-    this.setResult(projectName, false);
-  }
-
-  success(projectName: string) {
-    this.setResult(projectName, true);
   }
 
   saveResults() {
@@ -65,32 +58,7 @@ export class WorkspaceResults {
     }
   }
 
-  printResults(
-    onlyFailed: boolean,
-    successMessage: string,
-    failureMessage: string
-  ) {
-    const failedProjects = this.failedProjects;
-    if (this.failedProjects.length === 0) {
-      console.log(successMessage);
-      if (onlyFailed && this.startedWithFailedProjects) {
-        console.warn(stripIndents`
-          Warning: Only failed affected projects were run.
-          You should run above command WITHOUT --only-failed
-        `);
-      }
-    } else {
-      console.error(failureMessage);
-      console.log(`Failed projects: ${failedProjects.join(',')}`);
-      if (!onlyFailed && !this.startedWithFailedProjects) {
-        console.log(
-          `You can isolate the above projects by passing --only-failed`
-        );
-      }
-    }
-  }
-
-  private setResult(projectName: string, result: boolean) {
+  setResult(projectName: string, result: boolean) {
     this.commandResults.results[projectName] = result;
   }
 }

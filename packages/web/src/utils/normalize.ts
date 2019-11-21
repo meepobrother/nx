@@ -1,7 +1,7 @@
-import { WebBuildBuilderOptions } from '../builders/build/build.builder';
-import { Path, normalize } from '@angular-devkit/core';
+import { WebBuildBuilderOptions } from '../builders/build/build.impl';
+import { normalize } from '@angular-devkit/core';
 import { resolve, dirname, relative, basename } from 'path';
-import { BuildBuilderOptions } from './types';
+import { BuildBuilderOptions, BundleBuilderOptions } from './types';
 import { statSync } from 'fs';
 
 export interface FileReplacement {
@@ -9,27 +9,62 @@ export interface FileReplacement {
   with: string;
 }
 
+export function normalizeBundleOptions<T extends BundleBuilderOptions>(
+  options: T,
+  root
+): T & {
+  entryRoot: string;
+  projectRoot: string;
+} {
+  const entryFile = `${root}/${options.entryFile}`;
+  const entryRoot = dirname(entryFile);
+  const project = `${root}/${options.project}`;
+  const projectRoot = dirname(project);
+  const outputPath = `${root}/${options.outputPath}`;
+  return {
+    ...options,
+    babelConfig: normalizePluginPath(options.babelConfig, root),
+    rollupConfig: normalizePluginPath(options.rollupConfig, root),
+    entryFile,
+    entryRoot,
+    project,
+    projectRoot,
+    outputPath
+  };
+}
+
 export function normalizeBuildOptions<T extends BuildBuilderOptions>(
   options: T,
   root: string,
-  sourceRoot: Path
+  sourceRoot: string
 ): T {
   return {
     ...options,
-    root: root,
-    sourceRoot: sourceRoot,
     main: resolve(root, options.main),
     outputPath: resolve(root, options.outputPath),
     tsConfig: resolve(root, options.tsConfig),
     fileReplacements: normalizeFileReplacements(root, options.fileReplacements),
     assets: normalizeAssets(options.assets, root, sourceRoot),
-    webpackConfig: options.webpackConfig
-      ? resolve(root, options.webpackConfig)
-      : options.webpackConfig
+    webpackConfig: normalizePluginPath(options.webpackConfig, root)
   };
 }
 
-function normalizeAssets(assets: any[], root: string, sourceRoot: Path): any[] {
+function normalizePluginPath(pluginPath: void | string, root: string) {
+  if (!pluginPath) {
+    return pluginPath;
+  }
+  try {
+    return require.resolve(pluginPath);
+  } catch {
+    return resolve(root, pluginPath);
+  }
+}
+
+function normalizeAssets(
+  assets: any[],
+  root: string,
+  sourceRoot: string
+): any[] {
   return assets.map(asset => {
     if (typeof asset === 'string') {
       const assetPath = normalize(asset);
@@ -59,8 +94,12 @@ function normalizeAssets(assets: any[], root: string, sourceRoot: Path): any[] {
           'An asset cannot be written to a location outside of the output path.'
         );
       }
+
+      const assetPath = normalize(asset.input);
+      const resolvedAssetPath = resolve(root, assetPath);
       return {
         ...asset,
+        input: resolvedAssetPath,
         // Now we remove starting slash to make Webpack place it from the output root.
         output: asset.output.replace(/^\//, '')
       };
@@ -81,7 +120,7 @@ function normalizeFileReplacements(
 export function normalizeWebBuildOptions(
   options: WebBuildBuilderOptions,
   root: string,
-  sourceRoot: Path
+  sourceRoot: string
 ): WebBuildBuilderOptions {
   return {
     ...normalizeBuildOptions(options, root, sourceRoot),
